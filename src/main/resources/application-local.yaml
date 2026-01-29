@@ -16,6 +16,17 @@ spring:
       hibernate:
         format_sql: false
 
+security:
+  permit-all-endpoints:
+    - /swagger-ui.html
+    - /swagger-ui/**
+    - /api-docs
+    - /api-docs/**
+    - /h2-console/**
+  anonymous-only-endpoints:
+    - /api/auth/oauth/authorization-url
+    - /api/auth/oauth/**
+
 cookie:
   secure: false
 

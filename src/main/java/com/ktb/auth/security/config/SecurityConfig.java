@@ -28,6 +28,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsProperties corsProperties;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final SecurityProperties securityProperties;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -41,28 +42,16 @@ public class SecurityConfig {
 
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
 
-                .authorizeHttpRequests(auth -> auth
-                        // Public 엔드포인트
-                        .requestMatchers(
-                                "/",
-                                "/error",
-                                "/actuator/health",
-                                "/api/auth/**",
-                                "/h2-console/**",
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(securityProperties.getPermitAllPatterns())
+                        .permitAll();
 
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/v3/api-docs/swagger-config",
-                                "/api-docs/**"
-                        ).permitAll()
+                    auth.requestMatchers(securityProperties.getAnonymousOnlyPatterns())
+                        .anonymous();
 
-                        // Actuator Admin 전용
-                        .requestMatchers("/actuator/**").hasRole("ADMIN")
-
-                        // 나머지는 인증 필요
-                        .anyRequest().authenticated()
-                )
+                    auth.anyRequest()
+                        .authenticated();
+                })
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .authenticationEntryPoint(authenticationEntryPoint)
                 )
