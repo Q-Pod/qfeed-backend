@@ -1,6 +1,8 @@
 package com.ktb.common.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -9,50 +11,50 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-/**
- * AWS S3 클라이언트 및 Presigner 설정
- *
- * <p>S3 파일 업로드 및 Presigned URL 생성을 위한 Bean 구성
- */
+@ConfigurationProperties(prefix = "aws")
 @Configuration
+@Getter
+@Setter
 public class S3Config {
-
-    @Value("${aws.region}")
     private String region;
+    private S3Properties s3 = new S3Properties();
+    private CredentialsProperties credentials = new CredentialsProperties();
 
-    @Value("${aws.credentials.access-key}")
-    private String accessKey;
-
-    @Value("${aws.credentials.secret-key}")
-    private String secretKey;
-
-    /**
-     * S3 클라이언트 Bean 생성
-     *
-     * @return AWS S3 클라이언트
-     */
-    @Bean
-    public S3Client s3Client() {
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKey, secretKey);
-
-        return S3Client.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
-                .build();
+    @Getter
+    @Setter
+    public static class S3Properties {
+        private String bucketName;
     }
 
-    /**
-     * S3 Presigner Bean 생성
-     *
-     * @return AWS S3 Presigner
-     */
+    @Getter
+    @Setter
+    public static class CredentialsProperties {
+        private String accessKey;
+        private String secretKey;
+    }
+
+    @Bean
+    public S3Client s3Client() {
+        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
+            credentials.getAccessKey(), credentials.getSecretKey());
+        return S3Client.builder()
+            .region(Region.of(region))
+            .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+            .build();
+    }
+
     @Bean
     public S3Presigner s3Presigner() {
-        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKey, secretKey);
-
+        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
+            credentials.getAccessKey(), credentials.getSecretKey());
         return S3Presigner.builder()
-                .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
-                .build();
+            .region(Region.of(region))
+            .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+            .build();
+    }
+
+    @Bean
+    public String s3BucketName() {
+        return s3.getBucketName();
     }
 }

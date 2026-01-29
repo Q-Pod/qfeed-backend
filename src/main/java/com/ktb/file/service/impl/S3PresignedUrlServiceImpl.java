@@ -44,9 +44,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     private final FileRepository fileRepository;
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
-
-    @Value("${aws.s3.bucket-name}")
-    private String bucketName;
+    private final String s3BucketName;
 
     @Override
     @Transactional
@@ -120,7 +118,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     public boolean isFileExistsInS3(String s3Key) {
         try {
             HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
-                .bucket(bucketName)
+                .bucket(s3BucketName)
                 .key(s3Key)
                 .build();
             s3Client.headObject(headObjectRequest);
@@ -132,7 +130,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
 
     private String generateS3PresignedUrl(String s3Key, String contentType) {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-            .bucket(bucketName)
+            .bucket(s3BucketName)
             .key(s3Key)
             .contentType(contentType)
             .build();
