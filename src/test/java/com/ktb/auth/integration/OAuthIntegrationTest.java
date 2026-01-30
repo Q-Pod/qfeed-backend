@@ -1,6 +1,7 @@
 package com.ktb.auth.integration;
 
 import com.ktb.auth.client.KakaoOAuth2Client;
+import com.ktb.file.service.impl.S3PresignedUrlServiceImpl;
 import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.dto.KakaoAccount;
@@ -57,6 +58,9 @@ class OAuthIntegrationTest {
 
     @MockitoBean
     private KakaoOAuth2Client kakaoOAuth2Client;
+
+    @MockitoBean
+    private S3PresignedUrlServiceImpl s3PresignedUrlServiceImpl;
 
     private static final String AUTHORIZATION_CODE = "auth-code-123";
     private static final String KAKAO_ACCESS_TOKEN = "kakao.access.token";
