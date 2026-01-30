@@ -30,7 +30,7 @@ public class TokenServiceImpl implements TokenService {
             .orElseThrow(() -> new AccountNotFoundException(accountId))
             .getNickname();
 
-        if(nickname.isBlank() == nickname.isEmpty()) {
+        if(nickname.isBlank()) {
             nickname = DEFAULT_NICKNAME;
         }
 
