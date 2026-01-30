@@ -26,11 +26,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * JWT 토큰 생성 및 검증
- * - Access Token: userId + roles
- * - Refresh Token: userId + familyUuid
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -38,6 +33,7 @@ public class JwtProvider {
 
     private static final String CLAIM_USER_ID = "userId";
     private static final String CLAIM_ROLES = "roles";
+    private static final String CLAIM_NICKNAME = "nickname";
     private static final String CLAIM_TYPE = "type";
     private static final String CLAIM_FAMILY_UUID = "familyUuid";
     private static final String TOKEN_TYPE_ACCESS = "ACCESS";
@@ -54,7 +50,7 @@ public class JwtProvider {
         );
     }
 
-    public String createAccessToken(Long userId, List<String> roles) {
+    public String createAccessToken(Long userId, List<String> roles, String nickname) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getAccessTokenExpiration());
 
@@ -63,6 +59,7 @@ public class JwtProvider {
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_USER_ID, userId)
                 .claim(CLAIM_ROLES, roles)
+                .claim(CLAIM_NICKNAME, nickname)
                 .claim(CLAIM_TYPE, TOKEN_TYPE_ACCESS)
                 .issuer(jwtProperties.getIssuer())
                 .issuedAt(now)

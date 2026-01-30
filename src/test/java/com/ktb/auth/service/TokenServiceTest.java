@@ -2,11 +2,13 @@ package com.ktb.auth.service;
 
 import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.TokenFamily;
+import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.exception.token.InvalidAccessTokenException;
 import com.ktb.auth.exception.token.InvalidRefreshTokenException;
 import com.ktb.auth.jwt.JwtProperties;
 import com.ktb.auth.jwt.JwtProvider;
 import com.ktb.auth.repository.RefreshTokenRepository;
+import com.ktb.auth.repository.UserAccountRepository;
 import com.ktb.auth.service.impl.TokenServiceImpl;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -39,6 +41,9 @@ class TokenServiceTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Mock
+    private UserAccountRepository userAccountRepository;
+
     @InjectMocks
     private TokenServiceImpl tokenService;
 
@@ -50,19 +55,24 @@ class TokenServiceTest {
     private static final String EXPIRED_TOKEN = "expired.token";
     private static final String TAMPERED_TOKEN = "tampered.token";
     private static final String TOKEN_HASH = "token-hash-sha256";
+    private static final String USER_NICKNAME = "테스트유저";
 
     @Test
     @DisplayName("Access Token 발급이 성공해야 한다")
     void issueAccessToken_ShouldSucceed() {
         // given
-        when(jwtProvider.createAccessToken(USER_ID, ROLES)).thenReturn(VALID_ACCESS_TOKEN);
+        UserAccount mockAccount = mock(UserAccount.class);
+        when(mockAccount.getNickname()).thenReturn(USER_NICKNAME);
+        when(userAccountRepository.findById(USER_ID)).thenReturn(Optional.of(mockAccount));
+        when(jwtProvider.createAccessToken(USER_ID, ROLES, USER_NICKNAME)).thenReturn(VALID_ACCESS_TOKEN);
 
         // when
         String accessToken = tokenService.issueAccessToken(USER_ID, ROLES);
 
         // then
         assertThat(accessToken).isEqualTo(VALID_ACCESS_TOKEN);
-        verify(jwtProvider).createAccessToken(USER_ID, ROLES);
+        verify(userAccountRepository).findById(USER_ID);
+        verify(jwtProvider).createAccessToken(USER_ID, ROLES, USER_NICKNAME);
     }
 
     @Test

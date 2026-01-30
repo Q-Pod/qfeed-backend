@@ -2,8 +2,9 @@ package com.ktb.auth.service.impl;
 
 import com.ktb.auth.exception.token.InvalidAccessTokenException;
 import com.ktb.auth.exception.token.InvalidRefreshTokenException;
-import com.ktb.auth.jwt.JwtProperties;
+import com.ktb.auth.exception.account.AccountNotFoundException;
 import com.ktb.auth.jwt.JwtProvider;
+import com.ktb.auth.repository.UserAccountRepository;
 import com.ktb.auth.repository.RefreshTokenRepository;
 import com.ktb.auth.service.TokenService;
 import io.jsonwebtoken.Claims;
@@ -18,12 +19,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class TokenServiceImpl implements TokenService {
 
     private final JwtProvider jwtProvider;
-    private final JwtProperties jwtProperties;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserAccountRepository userAccountRepository;
+
+    private static final String DEFAULT_NICKNAME = "사용자";
 
     @Override
     public String issueAccessToken(Long accountId, List<String> roles) {
-        return jwtProvider.createAccessToken(accountId, roles);
+        String nickname = userAccountRepository.findById(accountId)
+            .orElseThrow(() -> new AccountNotFoundException(accountId))
+            .getNickname();
+
+        if(nickname.isBlank() == nickname.isEmpty()) {
+            nickname = DEFAULT_NICKNAME;
+        }
+
+        return jwtProvider.createAccessToken(accountId, roles, nickname);
     }
 
     @Override
