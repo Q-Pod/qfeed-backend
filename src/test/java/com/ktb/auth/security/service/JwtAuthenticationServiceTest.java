@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ktb.auth.dto.jwt.TokenClaims;
 import com.ktb.auth.exception.token.InvalidAccessTokenException;
 import com.ktb.auth.security.exception.AuthFailureException;
 import com.ktb.auth.service.TokenService;
@@ -31,16 +32,17 @@ class JwtAuthenticationServiceTest {
     private static final String EXPIRED_TOKEN = "expired.jwt.token";
     private static final Long USER_ID = 1L;
     private static final List<String> ROLES = List.of("ROLE_USER");
+    private static final String USER_NICKNAME = "사용자";
 
     @Test
     @DisplayName("유효한 JWT로 인증 시 TokenClaims 반환")
     void authenticate_WithValidToken_ShouldReturnTokenClaims() {
         // given
-        TokenService.TokenClaims claims = new TokenService.TokenClaims(USER_ID, ROLES);
+        TokenClaims claims = new TokenClaims(USER_ID, USER_NICKNAME, ROLES);
         when(tokenService.validateAccessToken(VALID_TOKEN)).thenReturn(claims);
 
         // when
-        Optional<TokenService.TokenClaims> result = authenticationService.authenticate(VALID_TOKEN);
+        Optional<TokenClaims> result = authenticationService.authenticate(VALID_TOKEN);
 
         // then
         assertThat(result).isPresent();

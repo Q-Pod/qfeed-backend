@@ -1,6 +1,8 @@
 package com.ktb.auth.security.adapter;
 
 import java.util.List;
+
+import com.ktb.auth.domain.UserAccount;
 import lombok.Getter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -8,14 +10,23 @@ import org.springframework.security.core.userdetails.User;
 @Getter
 public class SecurityUserAccount extends User {
 
-    private final Long accountId;
+    private final UserAccount account;
 
-    public SecurityUserAccount(Long accountId, List<String> roles) {
+    public SecurityUserAccount(UserAccount account, List<String> roles) {
         super(
-                String.valueOf(accountId),
+                account.getNickname(),
                 "",
                 roles.stream().map(SimpleGrantedAuthority::new).toList()
         );
-        this.accountId = accountId;
+        this.account = account;
+    }
+
+    public SecurityUserAccount(Long userId, String nickname, List<String> roles) {
+        super(
+                nickname,
+                "",
+                roles.stream().map(SimpleGrantedAuthority::new).toList()
+        );
+        this.account = UserAccount.createIdAndNicknameAccount(userId, nickname);
     }
 }

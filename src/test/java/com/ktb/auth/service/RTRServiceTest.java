@@ -4,6 +4,7 @@ import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.RevokeReason;
 import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
+import com.ktb.auth.dto.jwt.RefreshTokenEntity;
 import com.ktb.auth.exception.account.AccountNotFoundException;
 import com.ktb.auth.exception.family.FamilyRevokedException;
 import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
@@ -91,8 +92,7 @@ class RTRServiceTest {
     @DisplayName("토큰 재사용 탐지 시 Family가 폐기되어야 한다")
     void detectReuse_WithUsedToken_ShouldRevokeFamily() {
         // given
-        TokenService.RefreshTokenEntity usedToken =
-                new TokenService.RefreshTokenEntity(TOKEN_ID, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
+        RefreshTokenEntity usedToken = new RefreshTokenEntity(TOKEN_ID, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
 
         TokenFamily mockFamily = mock(TokenFamily.class);
         when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
@@ -109,8 +109,7 @@ class RTRServiceTest {
     @DisplayName("사용되지 않은 토큰은 재사용 탐지를 통과해야 한다")
     void detectReuse_WithUnusedToken_ShouldPass() {
         // given
-        TokenService.RefreshTokenEntity unusedToken =
-                new TokenService.RefreshTokenEntity(TOKEN_ID, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
+        RefreshTokenEntity unusedToken = new RefreshTokenEntity(TOKEN_ID, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
 
         // when
         rtrService.detectReuse(unusedToken);

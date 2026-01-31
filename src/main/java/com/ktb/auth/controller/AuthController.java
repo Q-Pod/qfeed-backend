@@ -4,7 +4,7 @@ import com.ktb.auth.config.OAuthProperties;
 import com.ktb.auth.dto.AuthorizationUrlResult;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthLoginResult;
-import com.ktb.auth.dto.TokenRefreshResult;
+import com.ktb.auth.dto.jwt.TokenRefreshResult;
 import com.ktb.auth.dto.request.OAuthExchangeRequest;
 import com.ktb.auth.dto.response.LogoutAllResponse;
 import com.ktb.auth.dto.response.OAuthLoginResponse;
@@ -181,7 +181,7 @@ public class AuthController {
         }
 
         if (refreshToken != null) {
-            oauthApplicationService.logout(principal.getAccountId(), refreshToken);
+            oauthApplicationService.logout(principal.getAccount().getId(), refreshToken);
         }
 
         Cookie expiredCookie = cookieService.createExpiredRefreshTokenCookie();
@@ -208,7 +208,7 @@ public class AuthController {
                 .body(new ApiResponse<>("unauthorized_request", null));
         }
 
-        int revokedCount = oauthApplicationService.logoutAll(principal.getAccountId());
+        int revokedCount = oauthApplicationService.logoutAll(principal.getAccount().getId());
 
         Cookie expiredCookie = cookieService.createExpiredRefreshTokenCookie();
         response.addCookie(expiredCookie);

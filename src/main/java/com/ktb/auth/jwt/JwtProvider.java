@@ -68,7 +68,7 @@ public class JwtProvider {
                 .compact();
     }
 
-    public String createRefreshToken(Long userId, String familyUuid) {
+    public String createRefreshToken(Long userId, String familyUuid, String nickname) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getRefreshTokenExpiration());
 
@@ -76,6 +76,7 @@ public class JwtProvider {
                 .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_USER_ID, userId)
+                .claim(CLAIM_NICKNAME, nickname)
                 .claim(CLAIM_FAMILY_UUID, familyUuid)
                 .claim(CLAIM_TYPE, TOKEN_TYPE_REFRESH)
                 .issuer(jwtProperties.getIssuer())

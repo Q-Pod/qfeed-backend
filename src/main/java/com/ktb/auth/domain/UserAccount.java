@@ -78,7 +78,8 @@ public class UserAccount extends BaseTimeEntity {
     private List<UserOAuth> oauthConnections = new ArrayList<>();
 
     @Builder
-    private UserAccount(String email, String nickname, File profileImage) {
+    private UserAccount(Long id, String email, String nickname, File profileImage) {
+        this.id = id;
         this.email = email;
         this.nickname = nickname;
         this.profileImage = profileImage;
@@ -88,6 +89,13 @@ public class UserAccount extends BaseTimeEntity {
     public static UserAccount createEmailAccount(String email, String nickname) {
         return UserAccount.builder()
                 .email(email)
+                .nickname(nickname)
+                .build();
+    }
+
+    public static UserAccount createIdAndNicknameAccount(Long id, String nickname) {
+        return UserAccount.builder()
+                .id(id)
                 .nickname(nickname)
                 .build();
     }

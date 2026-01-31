@@ -21,6 +21,6 @@ public class CustomUserDetailService implements UserDetailsService {
     public @NonNull UserDetails loadUserByUsername(@NonNull String userId) {
         UserAccount userAccount = userAccountRepository.getReferenceById(Long.valueOf(userId));
 
-        return new SecurityUserAccount(userAccount.getId(), List.of("ROLE_USER"));
+        return new SecurityUserAccount(userAccount, List.of("ROLE_USER"));
     }
 }

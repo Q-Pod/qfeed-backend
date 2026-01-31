@@ -11,9 +11,11 @@ import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.dto.AuthorizationUrlResult;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthExchangePayload;
+import com.ktb.auth.dto.jwt.RefreshTokenClaims;
+import com.ktb.auth.dto.jwt.RefreshTokenEntity;
 import com.ktb.auth.dto.response.KakaoUserInfoResponse;
 import com.ktb.auth.dto.OAuthLoginResult;
-import com.ktb.auth.dto.TokenRefreshResult;
+import com.ktb.auth.dto.jwt.TokenRefreshResult;
 import com.ktb.auth.dto.UserInfo;
 import com.ktb.auth.exception.family.FamilyOwnershipException;
 import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
@@ -125,8 +127,8 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
 
         TokenFamily family = rtrService.createFamily(payload.accountId(), payload.deviceInfo(), payload.clientIp());
 
-        String accessToken = tokenService.issueAccessToken(payload.accountId(), DEFAULT_ROLES);
-        String refreshToken = jwtProvider.createRefreshToken(payload.accountId(), family.getUuid());
+        String accessToken = tokenService.issueAccessToken(payload.accountId(), DEFAULT_ROLES, payload.nickname());
+        String refreshToken = jwtProvider.createRefreshToken(payload.accountId(), family.getUuid(), payload.nickname());
 
         String tokenHash = jwtProvider.generateTokenHash(refreshToken);
         RefreshToken refreshTokenEntity = RefreshToken.builder()
@@ -146,41 +148,35 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     @Override
     @Transactional
     public TokenRefreshResult refreshTokens(String refreshToken) {
-        // 1. Refresh Token 검증
-        TokenService.RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
+        RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
 
-        // 2. Token Hash로 DB 조회
         String tokenHash = jwtProvider.generateTokenHash(refreshToken);
-        TokenService.RefreshTokenEntity tokenEntity = tokenService.findByTokenHash(tokenHash);
+        RefreshTokenEntity tokenEntity = tokenService.findByTokenHash(tokenHash);
 
-        // 3. 재사용 감지
         rtrService.detectReuse(tokenEntity);
 
-        // 4. Family 활성 상태 확인
         rtrService.validateFamilyActive(tokenEntity.familyId());
 
-        // 5. 기존 토큰 사용 처리
         rtrService.markAsUsed(tokenEntity.id());
 
-        // 6. 새로운 Access Token 발급
-        String newAccessToken = tokenService.issueAccessToken(claims.userId(), DEFAULT_ROLES);
+        String newAccessToken = tokenService.issueAccessToken(claims.userId(), DEFAULT_ROLES, claims.userNickname());
 
-        // 7. 새로운 Refresh Token 발급 (RTR)
-        String newRefreshToken = jwtProvider.createRefreshToken(claims.userId(), claims.familyUuid());
+        String newRefreshToken = jwtProvider.createRefreshToken(claims.userId(), claims.familyUuid(), claims.userNickname());
 
-        // 8. 새로운 RefreshToken DB 저장
         TokenFamily family = tokenFamilyRepository.findByUuid(claims.familyUuid())
                 .orElseThrow(() -> new TokenFamilyNotFoundException(claims.familyUuid()));
 
         String newTokenHash = jwtProvider.generateTokenHash(newRefreshToken);
+
         RefreshToken newTokenEntity = RefreshToken.builder()
                 .family(family)
                 .tokenHash(newTokenHash)
                 .expiresAt(LocalDateTime.now().plus(jwtProvider.refreshTokenDuration()))
                 .build();
-        refreshTokenRepository.save(newTokenEntity);
 
         family.updateLastUsed();
+
+        refreshTokenRepository.save(newTokenEntity);
 
         log.info("Token Refresh 성공: userId={}, familyUuid={}", claims.userId(), claims.familyUuid());
 
@@ -191,7 +187,7 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     @Transactional
     public void logout(Long accountId, String refreshToken) {
         // Refresh Token 검증
-        TokenService.RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
+        RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
 
         if (!claims.userId().equals(accountId)) {
             throw new FamilyOwnershipException();

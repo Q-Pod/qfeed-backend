@@ -35,7 +35,7 @@ public @interface WithMockCustomUser {
     String email() default "test@test.com";
 
     /**
-     * 닉네임 (기본값: "testUser")
+     * 닉네임 (기본값: "테스트유저")
      */
-    String nickname() default "testUser";
+    String nickname() default "테스트유저";
 }

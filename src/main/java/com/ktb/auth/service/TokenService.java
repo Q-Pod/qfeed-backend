@@ -1,6 +1,9 @@
 package com.ktb.auth.service;
 
-import java.time.LocalDateTime;
+import com.ktb.auth.dto.jwt.RefreshTokenClaims;
+import com.ktb.auth.dto.jwt.RefreshTokenEntity;
+import com.ktb.auth.dto.jwt.TokenClaims;
+
 import java.util.List;
 
 public interface TokenService {
@@ -8,7 +11,7 @@ public interface TokenService {
     /**
      * Access Token 발급
      */
-    String issueAccessToken(Long accountId, List<String> roles);
+    String issueAccessToken(Long accountId, List<String> roles, String nickname);
 
     /**
      * Access Token 검증
@@ -24,10 +27,5 @@ public interface TokenService {
      * Refresh Token Hash로 DB 조회
      */
     RefreshTokenEntity findByTokenHash(String tokenHash);
-
-    // DTO 레코드
-    record TokenClaims(Long userId, List<String> roles) {}
-    record RefreshTokenClaims(Long userId, String familyUuid) {}
-    record RefreshTokenEntity(Long id, Long familyId, Boolean used, LocalDateTime expiresAt) {}
 }
 

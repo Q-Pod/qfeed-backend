@@ -1,6 +1,6 @@
 package com.ktb.auth.security.adapter;
 
-import com.ktb.auth.service.TokenService;
+import com.ktb.auth.dto.jwt.TokenClaims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class SpringSecurityContextManager {
 
-    public void setAuthentication(TokenService.TokenClaims claims, HttpServletRequest request) {
-        SecurityUserAccount securityUser = new SecurityUserAccount(claims.userId(), claims.roles());
+    public void setAuthentication(TokenClaims claims, HttpServletRequest request) {
+        SecurityUserAccount securityUser = new SecurityUserAccount(claims.userId(), claims.userNickname(), claims.roles());
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(

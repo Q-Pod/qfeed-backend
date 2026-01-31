@@ -3,7 +3,7 @@ package com.ktb.auth.service;
 import com.ktb.auth.dto.AuthorizationUrlResult;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthLoginResult;
-import com.ktb.auth.dto.TokenRefreshResult;
+import com.ktb.auth.dto.jwt.TokenRefreshResult;
 
 public interface OAuthApplicationService {
 

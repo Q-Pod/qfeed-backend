@@ -2,13 +2,14 @@ package com.ktb.auth.service;
 
 import com.ktb.auth.domain.RevokeReason;
 import com.ktb.auth.domain.TokenFamily;
+import com.ktb.auth.dto.jwt.RefreshTokenEntity;
 
 public interface RTRService {
 
     /**
      * 토큰 재사용 탐지
      */
-    void detectReuse(TokenService.RefreshTokenEntity tokenEntity);
+    void detectReuse(RefreshTokenEntity tokenEntity);
 
     /**
      * Family 폐기

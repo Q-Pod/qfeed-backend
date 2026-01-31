@@ -1,5 +1,6 @@
 package com.ktb.auth.security.service;
 
+import com.ktb.auth.dto.jwt.TokenClaims;
 import com.ktb.auth.security.exception.AuthFailureException;
 import com.ktb.common.exception.BusinessException;
 import com.ktb.auth.service.TokenService;
@@ -16,9 +17,9 @@ public class JwtAuthenticationService {
 
     private final TokenService tokenService;
 
-    public Optional<TokenService.TokenClaims> authenticate(String token) {
+    public Optional<TokenClaims> authenticate(String token) {
         try {
-            TokenService.TokenClaims claims = tokenService.validateAccessToken(token);
+            TokenClaims claims = tokenService.validateAccessToken(token);
             log.debug("JWT 인증 성공: userId={}", claims.userId());
             return Optional.of(claims);
         } catch (BusinessException e) {

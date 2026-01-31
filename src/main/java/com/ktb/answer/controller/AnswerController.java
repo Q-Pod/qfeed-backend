@@ -115,7 +115,7 @@ public class AnswerController {
             @AuthenticationPrincipal SecurityUserAccount principal,
             @Valid @ModelAttribute AnswerSubmitRequest request
     ) {
-        Long accountId = principal.getAccountId();
+        Long accountId = principal.getAccount().getId();
         AnswerSubmitCommand command = new AnswerSubmitCommand(request.questionId(), request.answerText(), request.answerType());
 
         AnswerSubmitResult submitResult = answerApplicationService.submit(accountId, command);
@@ -169,7 +169,7 @@ public class AnswerController {
             @Parameter(description = "답변 ID", example = "1")
             @PathVariable Long answerId
     ) {
-        Long accountId = principal.getAccountId();
+        Long accountId = principal.getAccount().getId();
         FeedbackResponse feedbackResponse = aiFeedbackOrchestrator.getFeedbackSync(answerId, accountId);
 
         log.info("GET /api/interviews/answers/{}/feedback - accountId: {}", answerId, accountId);

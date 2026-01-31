@@ -10,7 +10,7 @@ import com.ktb.auth.security.handler.CustomAuthenticationEntryPoint;
 import org.springframework.context.annotation.Import;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthLoginResult;
-import com.ktb.auth.dto.TokenRefreshResult;
+import com.ktb.auth.dto.jwt.TokenRefreshResult;
 import com.ktb.auth.dto.UserInfo;
 import com.ktb.auth.service.CookieService;
 import com.ktb.auth.service.OAuthApplicationService;
@@ -166,7 +166,7 @@ class AuthControllerTest {
     @DisplayName("로그아웃 성공 + 쿠키 삭제 확인")
     void logout_ShouldSucceedAndDeleteCookie() throws Exception {
         // given
-        SecurityUserAccount principal = new SecurityUserAccount(1L, List.of("ROLE_USER"));
+        SecurityUserAccount principal = new SecurityUserAccount(1L, "사용자", List.of("ROLE_USER"));
 
         Cookie expiredCookie = new Cookie("refreshToken", "");
         expiredCookie.setMaxAge(0);
@@ -185,7 +185,7 @@ class AuthControllerTest {
     @DisplayName("전체 로그아웃 성공 + 쿠키 삭제 확인")
     void logoutAll_ShouldSucceedAndDeleteCookie() throws Exception {
         // given
-        SecurityUserAccount principal = new SecurityUserAccount(1L, List.of("ROLE_USER"));
+        SecurityUserAccount principal = new SecurityUserAccount(1L, "사용자", List.of("ROLE_USER"));
 
         when(oauthApplicationService.logoutAll(any())).thenReturn(3);
         Cookie expiredCookie = new Cookie("refreshToken", "");

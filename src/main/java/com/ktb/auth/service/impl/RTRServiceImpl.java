@@ -4,6 +4,7 @@ import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.RevokeReason;
 import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
+import com.ktb.auth.dto.jwt.RefreshTokenEntity;
 import com.ktb.auth.exception.account.AccountNotFoundException;
 import com.ktb.auth.exception.family.FamilyRevokedException;
 import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
@@ -13,7 +14,6 @@ import com.ktb.auth.repository.RefreshTokenRepository;
 import com.ktb.auth.repository.TokenFamilyRepository;
 import com.ktb.auth.repository.UserAccountRepository;
 import com.ktb.auth.service.RTRService;
-import com.ktb.auth.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +28,7 @@ public class RTRServiceImpl implements RTRService {
     private final UserAccountRepository userAccountRepository;
 
     @Override
-    public void detectReuse(TokenService.RefreshTokenEntity tokenEntity) {
+    public void detectReuse(RefreshTokenEntity tokenEntity) {
         if (tokenEntity.used()) {
             revokeFamily(tokenEntity.familyId(), RevokeReason.REUSE_DETECTED);
             throw new TokenReuseDetectedException(tokenEntity.familyId());

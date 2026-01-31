@@ -1,6 +1,6 @@
 package com.ktb.auth.security.adapter;
 
-import com.ktb.auth.service.TokenService;
+import com.ktb.auth.dto.jwt.TokenClaims;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,14 +14,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-/**
- * SpringSecurityContextManager 단위 테스트
- * - Spring Security 동작 검증
- */
 @DisplayName("SpringSecurityContextManager 단위 테스트")
 class SpringSecurityContextManagerTest {
 
     private SpringSecurityContextManager contextManager;
+
+    private static final String USER_NICKNAME = "사용자";
 
     @BeforeEach
     void setUp() {
@@ -38,7 +36,7 @@ class SpringSecurityContextManagerTest {
     @DisplayName("인증 정보 설정 성공")
     void setAuthentication_ShouldSetSecurityContext() {
         // given
-        TokenService.TokenClaims claims = new TokenService.TokenClaims(1L, List.of("ROLE_USER"));
+        TokenClaims claims = new TokenClaims(1L, USER_NICKNAME, List.of("ROLE_USER"));
         HttpServletRequest request = mock(HttpServletRequest.class);
 
         // when
@@ -55,7 +53,7 @@ class SpringSecurityContextManagerTest {
     @DisplayName("인증 컨텍스트 초기화 성공")
     void clearAuthentication_ShouldClearSecurityContext() {
         // given
-        TokenService.TokenClaims claims = new TokenService.TokenClaims(1L, List.of("ROLE_USER"));
+        TokenClaims claims = new TokenClaims(1L, USER_NICKNAME, List.of("ROLE_USER"));
         HttpServletRequest request = mock(HttpServletRequest.class);
 
         contextManager.setAuthentication(claims, request);

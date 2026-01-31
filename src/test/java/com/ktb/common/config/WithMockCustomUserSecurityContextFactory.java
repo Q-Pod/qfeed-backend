@@ -22,7 +22,7 @@ public class WithMockCustomUserSecurityContextFactory
         SecurityContext context = SecurityContextHolder.createEmptyContext();
 
         SecurityUserAccount principal = new SecurityUserAccount(
-                annotation.userId(), List.of("ROLE_USER")
+                annotation.userId(), annotation.nickname(), List.of("ROLE_USER")
         );
 
         Authentication auth = new UsernamePasswordAuthenticationToken(
