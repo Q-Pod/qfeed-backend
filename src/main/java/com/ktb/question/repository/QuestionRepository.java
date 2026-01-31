@@ -47,5 +47,18 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             Pageable pageable
     );
 
-    java.util.Optional<Question> findFirstByDeletedAtIsNullAndUseYnTrueOrderByIdDesc();
+    @Query(value = """
+             SELECT question_id
+             FROM question
+             WHERE question_id >= (
+                 SELECT floor(random() * (max(question_id) - min(question_id) + 1)) + min(question_id)
+                 FROM question
+                 WHERE use_yn = true AND deleted_at IS NULL 
+             )
+             AND use_yn = true
+             AND deleted_at IS NULL
+             ORDER BY question_id
+             LIMIT 1
+            """, nativeQuery = true)
+    java.util.Optional<Long> findRandomActiveId();
 }

@@ -83,9 +83,12 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public QuestionDetailResponse getDailyRecommendation() {
-        Question question = questionRepository
-                .findFirstByDeletedAtIsNullAndUseYnTrueOrderByIdDesc()
+        Long questionId = questionRepository.findRandomActiveId()
                 .orElseThrow(() -> new QuestionNotFoundException(0L));
+
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new QuestionNotFoundException(questionId));
+
         return toDetailResponse(question);
     }
 
