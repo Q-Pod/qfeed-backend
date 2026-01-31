@@ -6,6 +6,7 @@ import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.AnswerSubmitCommand;
 import com.ktb.answer.dto.AnswerSubmitResult;
 import com.ktb.answer.dto.FeedbackResult;
+import com.ktb.answer.dto.response.AnswerListResponse;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.file.exception.FileAlreadyDeletedException;
@@ -14,9 +15,10 @@ import com.ktb.file.exception.FileNotFoundException;
 import com.ktb.file.exception.FileSizeExceededException;
 import com.ktb.file.exception.FileStorageMigrationException;
 import com.ktb.question.domain.QuestionCategory;
+import com.ktb.question.domain.QuestionType;
 import com.ktb.question.exception.QuestionDisabledException;
 import com.ktb.question.exception.QuestionNotFoundException;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,24 +32,22 @@ public interface AnswerApplicationService {
      * @param accountId       현재 사용자 ID
      * @param type            답변 타입 필터 (선택)
      * @param category        질문 카테고리 필터 (선택)
+     * @param questionType    질문 타입 필터 (선택)
      * @param dateFrom        시작 날짜 (선택)
      * @param dateTo          종료 날짜 (선택)
-     * @param cursorCreatedAt 커서 생성 시각 (페이지네이션)
-     * @param cursorAnswerId  커서 답변 ID (페이지네이션)
+     * @param cursor          페이지네이션 커서 (Base64)
      * @param limit           조회 개수
-     * @param expand          확장 필드 (question, feedback)
      * @return 답변 목록 (Slice)
      */
-    Slice<?> getList(
+    AnswerListResponse getList(
             Long accountId,
             AnswerType type,
             QuestionCategory category,
-            LocalDateTime dateFrom,
-            LocalDateTime dateTo,
-            LocalDateTime cursorCreatedAt,
-            Long cursorAnswerId,
-            int limit,
-            String expand
+            QuestionType questionType,
+            LocalDate dateFrom,
+            LocalDate dateTo,
+            String cursor,
+            Integer limit
     );
 
     /**

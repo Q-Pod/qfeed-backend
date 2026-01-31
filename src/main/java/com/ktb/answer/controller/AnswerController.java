@@ -24,6 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -50,7 +51,9 @@ public class AnswerController {
     private static final String MESSAGE_ANSWER_SUBMITTED = "answer_submitted_success";
     private static final String MESSAGE_FEEDBACK_RETRIEVED = "feedback_retrieval_success";
 
-    @Operation(summary = "답변 목록 조회", description = "사용자의 학습 기록 목록을 조회합니다 (본인만)")
+    @Operation(summary = "답변 목록 조회",
+            description = "사용자의 학습 기록 목록을 조회합니다 (본인만). "
+                    + "날짜 필터 미입력 시 최근 1개월 기준으로 조회됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청",
@@ -59,21 +62,26 @@ public class AnswerController {
     })
     @GetMapping("/answers")
     public ResponseEntity<ApiResponse<AnswerListResponse>> getAnswerList(
-            @Parameter(hidden = true) Long accountId,  // TODO: Spring Security에서 주입
-            @Valid @ModelAttribute AnswerListRequest request
+            @AuthenticationPrincipal SecurityUserAccount principal,
+            @Valid @ParameterObject AnswerListRequest request
     ) {
-        // TODO: 구현 필요
-        // 1. accountId 추출 (Spring Security Authentication)
-        // 2. Request DTO를 Command로 변환
-        // 3. Service 호출
-        // 4. Result를 Response DTO로 변환
-        // 5. ApiResponse로 래핑하여 반환
+        Long accountId = principal.getAccount().getId();
 
-        log.info("GET /api/answers - accountId: {}", accountId);
+        AnswerListResponse response = answerApplicationService.getList(
+                accountId,
+                request.type(),
+                request.category(),
+                request.questionType(),
+                request.dateFrom(),
+                request.dateTo(),
+                request.cursor(),
+                request.limit()
+        );
 
-        // TODO: 임시 구현 (Service 연동 필요)
+        log.info("GET /api/answers - accountId: {}, size: {}", accountId, response.records().size());
+
         return ResponseEntity.ok(
-                new ApiResponse<>(MESSAGE_ANSWER_LIST_RETRIEVED, null)
+                new ApiResponse<>(MESSAGE_ANSWER_LIST_RETRIEVED, response)
         );
     }
 

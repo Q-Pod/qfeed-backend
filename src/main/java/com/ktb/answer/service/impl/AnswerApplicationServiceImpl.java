@@ -1,13 +1,18 @@
 package com.ktb.answer.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ktb.answer.domain.Answer;
+import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.dto.AnswerDetailQuery;
 import com.ktb.answer.dto.AnswerDetailResult;
+import com.ktb.answer.dto.AnswerListCursor;
 import com.ktb.answer.dto.AnswerSubmitCommand;
 import com.ktb.answer.dto.AnswerSubmitResult;
 import com.ktb.answer.dto.FeedbackResult;
 import com.ktb.answer.dto.ImmediateFeedbackResult;
+import com.ktb.answer.dto.response.AnswerListResponse;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.answer.repository.AnswerRepository;
@@ -15,6 +20,7 @@ import com.ktb.answer.service.AnswerApplicationService;
 import com.ktb.answer.service.ImmediateFeedbackService;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.service.UserAccountService;
+import com.ktb.answer.exception.AnswerListInvalidInputException;
 import com.ktb.file.exception.FileAlreadyDeletedException;
 import com.ktb.file.exception.FileExtensionNotAllowedException;
 import com.ktb.file.exception.FileNotFoundException;
@@ -27,11 +33,17 @@ import com.ktb.hashtag.repository.AnswerHashtagRepository;
 import com.ktb.hashtag.repository.HashtagRepository;
 import com.ktb.question.domain.Question;
 import com.ktb.question.domain.QuestionCategory;
+import com.ktb.question.domain.QuestionType;
 import com.ktb.question.dto.QuestionDetailResponse;
 import com.ktb.question.exception.QuestionDisabledException;
 import com.ktb.question.exception.QuestionNotFoundException;
 import com.ktb.question.service.QuestionService;
+
+import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Base64;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,41 +63,53 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     private final ImmediateFeedbackService immediateFeedbackService;
     private final AnswerHashtagRepository answerHashtagRepository;
     private final HashtagRepository hashtagRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
-    public Slice<?> getList(
+    public AnswerListResponse getList(
             Long accountId,
             AnswerType type,
             QuestionCategory category,
-            LocalDateTime dateFrom,
-            LocalDateTime dateTo,
-            LocalDateTime cursorCreatedAt,
-            Long cursorAnswerId,
-            int limit,
-            String expand
+            QuestionType questionType,
+            LocalDate dateFrom,
+            LocalDate dateTo,
+            String cursor,
+            Integer limit
     ) {
-        // TODO: 구현 필요
-        // 1. Repository에서 답변 목록 조회 (커서 페이지네이션)
-        // 2. expand 파라미터에 따라 추가 데이터 조회 (question, feedback)
-        // 3. DTO로 변환하여 반환
-
         log.debug("Retrieving answer list for accountId: {}", accountId);
 
-        PageRequest pageRequest = PageRequest.of(0, limit + 1);
+        validateQuestionType(questionType);
+        LocalDateRange dateRange = resolveDateRange(dateFrom, dateTo);
+        int resolvedLimit = resolveLimit(limit);
+        AnswerListCursor cursorPayload = decodeCursor(cursor);
+        PageRequest pageRequest = PageRequest.of(0, resolvedLimit);
 
-        Slice<Answer> answers = answerRepository.findByAccountIdWithFilters(
-                accountId,
-                type,
-                category,
-                dateFrom,
-                dateTo,
-                cursorCreatedAt,
-                cursorAnswerId,
-                pageRequest
-        );
+        LocalDateTime from = dateRange.start().atStartOfDay();
+        LocalDateTime to = dateRange.end().atTime(LocalTime.MAX);
 
-        // TODO: expand 처리 및 DTO 변환
-        return answers;
+        Slice<Answer> answers = cursorPayload == null
+                ? answerRepository.findByAccountIdWithFiltersNoCursor(
+                        accountId,
+                        type,
+                        category,
+                        questionType,
+                        from,
+                        to,
+                        pageRequest
+                )
+                : answerRepository.findByAccountIdWithFilters(
+                        accountId,
+                        type,
+                        category,
+                        questionType,
+                        from,
+                        to,
+                        cursorPayload.lastCreatedAt(),
+                        cursorPayload.lastAnswerId(),
+                        pageRequest
+                );
+
+        return toAnswerListResponse(answers, resolvedLimit);
     }
 
     @Override
@@ -231,5 +255,104 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         if (!answer.isOwnedBy(accountId)) {
             throw new AnswerAccessDeniedException(answer.getId(), accountId);
         }
+    }
+
+    private LocalDateRange resolveDateRange(LocalDate dateFrom, LocalDate dateTo) {
+        LocalDate resolvedTo = dateTo == null ? LocalDate.now() : dateTo;
+        LocalDate resolvedFrom = dateFrom == null ? resolvedTo.minusMonths(1) : dateFrom;
+
+        if (resolvedFrom.isAfter(resolvedTo)) {
+            throw new AnswerListInvalidInputException("dateFrom must be before or equal to dateTo");
+        }
+
+        return new LocalDateRange(resolvedFrom, resolvedTo);
+    }
+
+    private int resolveLimit(Integer limit) {
+        int resolved = limit == null ? 10 : limit;
+        if (resolved < 1 || resolved > 50) {
+            throw new AnswerListInvalidInputException("limit must be between 1 and 50");
+        }
+        return resolved;
+    }
+
+    private void validateQuestionType(QuestionType questionType) {
+        if (questionType == null) {
+            return;
+        }
+        if (questionType != QuestionType.CS) {
+            throw new AnswerListInvalidInputException("questionType is only supported for [CS, SYSTEM_DESIGN, PORTFOLIO]");
+        }
+    }
+
+    private record LocalDateRange(LocalDate start, LocalDate end) {
+    }
+
+    private AnswerListCursor decodeCursor(String cursor) {
+        if (cursor == null || cursor.isBlank()) {
+            return null;
+        }
+        try {
+            byte[] decoded = Base64.getDecoder().decode(cursor);
+            AnswerListCursor payload = objectMapper.readValue(decoded, AnswerListCursor.class);
+            if (payload.lastCreatedAt() == null || payload.lastAnswerId() == null) {
+                throw new AnswerListInvalidInputException("cursor payload is incomplete");
+            }
+            return payload;
+        } catch (IllegalArgumentException | IOException e) {
+            throw new AnswerListInvalidInputException("invalid cursor", e);
+        }
+    }
+
+    private String encodeCursor(AnswerListCursor cursor) {
+        try {
+            byte[] json = objectMapper.writeValueAsBytes(cursor);
+            return Base64.getEncoder().encodeToString(json);
+        } catch (JsonProcessingException e) {
+            throw new AnswerListInvalidInputException("failed to encode cursor", e);
+        }
+    }
+
+    private AnswerListResponse toAnswerListResponse(Slice<Answer> answers, int limit) {
+        List<AnswerListResponse.AnswerSummary> records = answers.getContent().stream()
+                .map(answer -> new AnswerListResponse.AnswerSummary(
+                        answer.getId(),
+                        answer.getType().name(),
+                        answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString(),
+                        new AnswerListResponse.QuestionInfo(
+                                answer.getQuestion().getId(),
+                                answer.getQuestion().getContent(),
+                                answer.getQuestion().getCategory().name()
+                        ),
+                        toFeedbackInfo(answer)
+                ))
+                .toList();
+
+        String nextCursor = null;
+        if (answers.hasNext() && !answers.getContent().isEmpty()) {
+            Answer last = answers.getContent().get(answers.getContent().size() - 1);
+            nextCursor = encodeCursor(new AnswerListCursor(last.getCreatedAt(), last.getId()));
+        }
+
+        AnswerListResponse.PaginationInfo pagination = new AnswerListResponse.PaginationInfo(
+                limit,
+                answers.hasNext(),
+                nextCursor
+        );
+
+        return new AnswerListResponse(records, pagination);
+    }
+
+    private AnswerListResponse.FeedbackInfo toFeedbackInfo(Answer answer) {
+        AnswerStatus status = answer.getStatus();
+        String feedbackStatus = switch (status) {
+            case AI_FEEDBACK_PROCESSING -> "PROCESSING";
+            case COMPLETED -> "COMPLETED";
+            case FAILED -> "FAILED";
+            case FAILED_RETRYABLE -> "FAILED_RETRYABLE";
+            default -> "NOT_AVAILABLE";
+        };
+        boolean available = status == AnswerStatus.COMPLETED;
+        return new AnswerListResponse.FeedbackInfo(available, feedbackStatus);
     }
 }

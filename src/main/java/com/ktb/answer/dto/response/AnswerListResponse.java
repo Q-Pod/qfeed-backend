@@ -25,13 +25,13 @@ public record AnswerListResponse(
             String type,
 
             @Schema(description = "답변 작성 시각", example = "2026-01-22T10:30:00")
-            String answeredAt,
+            String createdAt,
 
-            @Schema(description = "질문 정보 (expand=question 시 포함)")
-            QuestionInfo question,
+        @Schema(description = "질문 정보")
+        QuestionInfo question,
 
-            @Schema(description = "피드백 요약 정보 (expand=feedback 시 포함)")
-            FeedbackInfo feedback
+        @Schema(description = "피드백 요약 정보")
+        FeedbackInfo feedback
     ) {
     }
 
@@ -54,7 +54,7 @@ public record AnswerListResponse(
             boolean feedbackAvailable,
 
             @Schema(description = "AI 피드백 상태", example = "COMPLETED",
-                    allowableValues = {"PROCESSING", "COMPLETED", "FAILED"})
+                    allowableValues = {"PROCESSING", "COMPLETED", "FAILED", "FAILED_RETRYABLE", "NOT_AVAILABLE"})
             String aiFeedbackStatus
     ) {
     }

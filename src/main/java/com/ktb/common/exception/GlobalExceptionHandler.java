@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.validation.BindException;
 
 @RestControllerAdvice
 @Slf4j
@@ -41,6 +43,46 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         log.warn("Validation exception: {}", detail);
+
+        CommonErrorResponse response = CommonErrorResponse.of(
+                ErrorCode.INVALID_INPUT,
+                detail,
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<CommonErrorResponse> handleBindException(
+            BindException e, HttpServletRequest request) {
+
+        String detail = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+
+        log.warn("Bind exception: {}", detail);
+
+        CommonErrorResponse response = CommonErrorResponse.of(
+                ErrorCode.INVALID_INPUT,
+                detail,
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<CommonErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException e, HttpServletRequest request) {
+
+        String detail = String.format("%s: %s", e.getName(), e.getValue());
+
+        log.warn("Type mismatch: {}", detail);
 
         CommonErrorResponse response = CommonErrorResponse.of(
                 ErrorCode.INVALID_INPUT,
