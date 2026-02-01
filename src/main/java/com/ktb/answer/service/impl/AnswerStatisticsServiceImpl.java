@@ -2,6 +2,7 @@ package com.ktb.answer.service.impl;
 
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.dto.CategoryCount;
+import com.ktb.answer.dto.DailyCount;
 import com.ktb.answer.dto.TypeCount;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AnswerStatisticsService;
@@ -48,5 +49,10 @@ public class AnswerStatisticsServiceImpl implements AnswerStatisticsService {
                 .toList();
 
         return dates.size();
+    }
+
+    @Override
+    public List<DailyCount> getDailyCounts(Long accountId, LocalDateTime start, LocalDateTime end) {
+        return answerRepository.countByAccountIdGroupByDate(accountId, start, end);
     }
 }

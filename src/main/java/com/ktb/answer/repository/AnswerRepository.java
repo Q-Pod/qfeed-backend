@@ -4,6 +4,7 @@ import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.dto.CategoryCount;
 import com.ktb.answer.dto.TypeCount;
+import com.ktb.answer.dto.DailyCount;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
 import java.time.LocalDateTime;
@@ -130,4 +131,19 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
             ORDER BY a.createdAt DESC
             """)
     List<LocalDateTime> findCreatedAtByAccountIdOrderByCreatedAtDesc(@Param("accountId") Long accountId);
+
+    @Query("""
+            SELECT new com.ktb.answer.dto.DailyCount(CAST(a.createdAt AS LocalDate), COUNT(a))
+            FROM Answer a
+            WHERE a.deletedAt IS NULL
+            AND a.account.id = :accountId
+            AND a.createdAt >= :startDateTime
+            AND a.createdAt < :endDateTime
+            GROUP BY CAST(a.createdAt AS LocalDate)
+            """)
+    List<DailyCount> countByAccountIdGroupByDate(
+            @Param("accountId") Long accountId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
