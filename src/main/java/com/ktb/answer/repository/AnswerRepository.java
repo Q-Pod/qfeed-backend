@@ -2,9 +2,12 @@ package com.ktb.answer.repository;
 
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerType;
+import com.ktb.answer.dto.CategoryCount;
+import com.ktb.answer.dto.TypeCount;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -96,4 +99,35 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     //         @Param("sessionId") String sessionId,
     //         @Param("questionId") Long questionId
     // );
+
+    @Query("""
+            SELECT new com.ktb.answer.dto.TypeCount(a.type, COUNT(a))
+            FROM Answer a
+            WHERE a.deletedAt IS NULL
+            AND a.account.id = :accountId
+            AND a.type IN :types
+            GROUP BY a.type
+            """)
+    List<TypeCount> countByAccountIdAndTypeIn(
+            @Param("accountId") Long accountId,
+            @Param("types") List<AnswerType> types
+    );
+
+    @Query("""
+            SELECT new com.ktb.answer.dto.CategoryCount(q.category, COUNT(a))
+            FROM Answer a
+            JOIN a.question q
+            WHERE a.deletedAt IS NULL
+            AND a.account.id = :accountId
+            GROUP BY q.category
+            """)
+    List<CategoryCount> countByAccountIdGroupByCategory(@Param("accountId") Long accountId);
+
+    @Query("""
+            SELECT a.createdAt FROM Answer a
+            WHERE a.deletedAt IS NULL
+            AND a.account.id = :accountId
+            ORDER BY a.createdAt DESC
+            """)
+    List<LocalDateTime> findCreatedAtByAccountIdOrderByCreatedAtDesc(@Param("accountId") Long accountId);
 }
