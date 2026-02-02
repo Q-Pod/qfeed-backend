@@ -4,12 +4,14 @@ import com.ktb.common.dto.ApiResponse;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
 import com.ktb.question.dto.QuestionCreateRequest;
+import com.ktb.question.dto.QuestionCategoryListResponse;
 import com.ktb.question.dto.QuestionDetailResponse;
 import com.ktb.question.dto.QuestionKeywordCheckRequest;
 import com.ktb.question.dto.QuestionKeywordCheckResponse;
 import com.ktb.question.dto.QuestionKeywordListResponse;
 import com.ktb.question.dto.QuestionListResponse;
 import com.ktb.question.dto.QuestionSearchResponse;
+import com.ktb.question.dto.QuestionTypeListResponse;
 import com.ktb.question.dto.QuestionUpdateRequest;
 import com.ktb.question.service.QuestionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,6 +64,32 @@ public class QuestionController {
     ) {
         QuestionListResponse result = questionService.getQuestions(category, type, cursor, size);
         return ResponseEntity.ok(new ApiResponse<>("questions_retrieval_success", result));
+    }
+
+    /**
+     * 질문 카테고리 목록 조회
+     */
+    @GetMapping("/categories")
+    @Operation(summary = "질문 카테고리 목록 조회", description = "질문 카테고리 목록을 조회합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    })
+    public ResponseEntity<ApiResponse<QuestionCategoryListResponse>> getQuestionCategories() {
+        QuestionCategoryListResponse result = questionService.getQuestionCategories();
+        return ResponseEntity.ok(new ApiResponse<>("question_categories_retrieval_success", result));
+    }
+
+    /**
+     * 질문 타입 목록 조회
+     */
+    @GetMapping("/types")
+    @Operation(summary = "질문 타입 목록 조회", description = "질문 타입 목록을 조회합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    })
+    public ResponseEntity<ApiResponse<QuestionTypeListResponse>> getQuestionTypes() {
+        QuestionTypeListResponse result = questionService.getQuestionTypes();
+        return ResponseEntity.ok(new ApiResponse<>("question_types_retrieval_success", result));
     }
 
     /**

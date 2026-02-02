@@ -23,4 +23,8 @@ public interface QuestionService {
     QuestionKeywordListResponse getQuestionKeywords(Long questionId);
 
     QuestionKeywordCheckResponse checkQuestionKeywords(Long questionId, java.util.List<String> keywords);
+
+    QuestionCategoryListResponse getQuestionCategories();
+
+    QuestionTypeListResponse getQuestionTypes();
 }

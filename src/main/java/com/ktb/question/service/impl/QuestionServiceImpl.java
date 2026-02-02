@@ -10,6 +10,7 @@ import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
 import com.ktb.question.dto.KeywordMatchResponse;
 import com.ktb.question.dto.PaginationResponse;
+import com.ktb.question.dto.QuestionCategoryListResponse;
 import com.ktb.question.dto.QuestionCreateRequest;
 import com.ktb.question.dto.QuestionDetailResponse;
 import com.ktb.question.dto.QuestionKeywordCheckResponse;
@@ -17,6 +18,7 @@ import com.ktb.question.dto.QuestionKeywordListResponse;
 import com.ktb.question.dto.QuestionListResponse;
 import com.ktb.question.dto.QuestionSearchResponse;
 import com.ktb.question.dto.QuestionSummaryResponse;
+import com.ktb.question.dto.QuestionTypeListResponse;
 import com.ktb.question.dto.QuestionUpdateRequest;
 import com.ktb.question.exception.QuestionNotFoundException;
 import com.ktb.question.exception.SearchKeywordTooShortException;
@@ -24,6 +26,8 @@ import com.ktb.question.repository.QuestionRepository;
 import com.ktb.question.service.QuestionService;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -165,6 +169,30 @@ public class QuestionServiceImpl implements QuestionService {
                 ))
                 .toList();
         return new QuestionKeywordCheckResponse(results);
+    }
+
+    @Override
+    public QuestionCategoryListResponse getQuestionCategories() {
+        Map<String, String> categories = Arrays.stream(QuestionCategory.values())
+                .collect(Collectors.toMap(
+                        QuestionCategory::name,
+                        QuestionCategory::getCategory,
+                        (existing, ignored) -> existing,
+                        LinkedHashMap::new
+                ));
+        return new QuestionCategoryListResponse(categories);
+    }
+
+    @Override
+    public QuestionTypeListResponse getQuestionTypes() {
+        Map<String, String> types = Arrays.stream(QuestionType.values())
+                .collect(Collectors.toMap(
+                        QuestionType::name,
+                        QuestionType::getType,
+                        (existing, ignored) -> existing,
+                        LinkedHashMap::new
+                ));
+        return new QuestionTypeListResponse(types);
     }
 
     private void validateKeyword(String keyword) {

@@ -8,8 +8,8 @@ import lombok.Getter;
 @Getter
 public enum QuestionType {
     CS("CS"),
-    SYSTEM_DESIGN("SYSTEM_DESIGN"),
-    PORTFOLIO("PORTFOLIO");
+    SYSTEM_DESIGN("시스템 디자인"),
+    PORTFOLIO("개인화");
 
     private final String type;
 
