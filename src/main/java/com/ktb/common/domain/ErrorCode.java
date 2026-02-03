@@ -65,7 +65,6 @@ public enum ErrorCode {
     HASHTAG_NOT_FOUND(404, "H001", "해시태그를 찾을 수 없습니다"),
     HASHTAG_NAME_REQUIRED(400, "H002", "해시태그 이름은 필수입니다"),
     HASHTAG_NAME_TOO_LONG(400, "H003", "해시태그 이름은 100자를 초과할 수 없습니다"),
-    HASHTAG_NAME_CONTAINS_SPACE(400, "H004", "해시태그 이름에 공백이 포함될 수 없습니다"),
 
     // ==================== Metric 관련 ====================
     METRIC_NAME_REQUIRED(400, "M001", "평가 지표 이름은 필수입니다"),

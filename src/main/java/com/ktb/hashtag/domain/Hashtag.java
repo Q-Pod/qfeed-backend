@@ -1,7 +1,6 @@
 package com.ktb.hashtag.domain;
 
 import com.ktb.common.domain.BaseUsableEntity;
-import com.ktb.hashtag.exception.HashtagNameContainsSpaceException;
 import com.ktb.hashtag.exception.HashtagNameInvalidLengthException;
 import com.ktb.hashtag.exception.HashtagNameRequiredException;
 import jakarta.persistence.Column;
@@ -76,9 +75,6 @@ public class Hashtag extends BaseUsableEntity {
         }
         if (name.trim().length() > 100) {
             throw new HashtagNameInvalidLengthException();
-        }
-        if (name.contains(" ")) {
-            throw new HashtagNameContainsSpaceException();
         }
     }
 }
