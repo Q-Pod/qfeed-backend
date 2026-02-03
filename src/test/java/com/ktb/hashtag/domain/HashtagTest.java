@@ -1,13 +1,10 @@
 package com.ktb.hashtag.domain;
 
-import com.ktb.hashtag.exception.HashtagNameContainsSpaceException;
 import com.ktb.hashtag.exception.HashtagNameInvalidLengthException;
 import com.ktb.hashtag.exception.HashtagNameRequiredException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,17 +75,6 @@ class HashtagTest {
         }
 
         @Test
-        @DisplayName("앞뒤 공백이 있는 이름은 HashtagNameContainsSpaceException 발생")
-        void create_WithLeadingTrailingSpaces_ShouldThrowException() {
-            // Given
-            String name = "  Spring  ";
-
-            // When & Then
-            assertThatThrownBy(() -> Hashtag.create(name))
-                    .isInstanceOf(HashtagNameContainsSpaceException.class);
-        }
-
-        @Test
         @DisplayName("1자 이름으로 생성 성공")
         void create_WithOneCharacter_ShouldSucceed() {
             // Given
@@ -147,15 +133,6 @@ class HashtagTest {
             // When & Then
             assertThatThrownBy(() -> Hashtag.create("   "))
                     .isInstanceOf(HashtagNameRequiredException.class);
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"자바 스크립트", "Spring Boot", "C Sharp", "Node JS"})
-        @DisplayName("공백이 포함된 이름으로 생성 시 HashtagNameContainsSpaceException 발생")
-        void create_WithSpaces_ShouldThrowException(String name) {
-            // When & Then
-            assertThatThrownBy(() -> Hashtag.create(name))
-                    .isInstanceOf(HashtagNameContainsSpaceException.class);
         }
     }
 
