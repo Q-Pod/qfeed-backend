@@ -1,6 +1,5 @@
 package com.ktb.common.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,16 +25,6 @@ import org.springframework.security.web.SecurityFilterChain;
 @TestConfiguration
 @EnableWebSecurity
 public class TestSecurityConfig {
-
-    /**
-     * 테스트용 ObjectMapper 빈 제공
-     * Jackson 직렬화/역직렬화에 필요
-     */
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
-
     /**
      * 테스트용 Security Filter Chain
      * - CSRF 비활성화

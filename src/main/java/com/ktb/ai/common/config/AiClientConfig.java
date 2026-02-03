@@ -1,6 +1,5 @@
 package com.ktb.ai.common.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import org.springframework.context.annotation.Bean;
@@ -26,10 +25,5 @@ public class AiClientConfig {
         return RestClient.builder()
                 .requestFactory(requestFactory)
                 .build();
-    }
-
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
     }
 }

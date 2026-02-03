@@ -3,7 +3,7 @@ package com.ktb.ai.feedback.client;
 import static com.ktb.common.domain.ErrorCode.AI_FEEDBACK_SERVICE_ERROR;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ktb.ai.feedback.dto.request.AiFeedbackRequest;
 import com.ktb.ai.feedback.dto.response.AiFeedbackResponse;
 import com.ktb.common.dto.ApiResponse;
@@ -39,7 +39,6 @@ public class AiFeedbackClient {
     private static final String MESSAGE_ANSWER_TOO_LONG = "ANSWER_TOO_LONG";
 
     private final RestClient aiRestClient;
-    private final ObjectMapper objectMapper;
 
     @Value("${ai.feedback.base-url}")
     private String baseUrl;
@@ -123,7 +122,7 @@ public class AiFeedbackClient {
 
     private void handle400Error(String responseBody) {
         try {
-            JsonNode jsonNode = objectMapper.readTree(responseBody);
+            JsonNode jsonNode = JsonMapper.builder().build().readTree(responseBody);
             String message = jsonNode.has("message") ? jsonNode.get("message").asText() : "";
 
             switch (message) {

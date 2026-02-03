@@ -1,6 +1,7 @@
 package com.ktb.auth.security.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ktb.auth.security.exception.AuthFailureException;
 import com.ktb.common.domain.ErrorCode;
 import com.ktb.common.dto.CommonErrorResponse;
@@ -17,8 +18,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
-
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper =
+        JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .build();
 
     @Override
     public void commence(
@@ -42,6 +45,6 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
         response.setStatus(errorCode.getStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        objectMapper.writeValue(response.getWriter(), errorResponse);
+        jsonMapper.writeValue(response.getWriter(), errorResponse);
     }
 }

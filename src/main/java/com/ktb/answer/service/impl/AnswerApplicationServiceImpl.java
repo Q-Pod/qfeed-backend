@@ -1,7 +1,7 @@
 package com.ktb.answer.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
@@ -63,7 +63,8 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     private final ImmediateFeedbackService immediateFeedbackService;
     private final AnswerHashtagRepository answerHashtagRepository;
     private final HashtagRepository hashtagRepository;
-    private final ObjectMapper objectMapper;
+
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     @Override
     public AnswerListResponse getList(
@@ -294,7 +295,7 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         }
         try {
             byte[] decoded = Base64.getDecoder().decode(cursor);
-            AnswerListCursor payload = objectMapper.readValue(decoded, AnswerListCursor.class);
+            AnswerListCursor payload = jsonMapper.readValue(decoded, AnswerListCursor.class);
             if (payload.lastCreatedAt() == null || payload.lastAnswerId() == null) {
                 throw new AnswerListInvalidInputException("cursor payload is incomplete");
             }
@@ -306,7 +307,7 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
     private String encodeCursor(AnswerListCursor cursor) {
         try {
-            byte[] json = objectMapper.writeValueAsBytes(cursor);
+            byte[] json = jsonMapper.writeValueAsBytes(cursor);
             return Base64.getEncoder().encodeToString(json);
         } catch (JsonProcessingException e) {
             throw new AnswerListInvalidInputException("failed to encode cursor", e);
