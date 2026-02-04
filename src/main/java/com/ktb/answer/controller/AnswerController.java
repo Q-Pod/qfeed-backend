@@ -17,12 +17,14 @@ import com.ktb.answer.service.AiFeedbackOrchestrator;
 import com.ktb.answer.service.AnswerApplicationService;
 import com.ktb.auth.security.adapter.SecurityUserAccount;
 import com.ktb.common.dto.ApiResponse;
+import com.ktb.common.util.HttpRequestUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +54,9 @@ public class AnswerController {
     private static final String MESSAGE_ANSWER_DETAIL_RETRIEVED = "record_retrieval_success";
     private static final String MESSAGE_ANSWER_SUBMITTED = "answer_submitted_success";
     private static final String MESSAGE_FEEDBACK_RETRIEVED = "feedback_retrieval_success";
+
+    private static final String HEADER_X_FORWARDED_FOR = "X-Forwarded-For";
+    private static final String HEADER_X_REAL_IP = "X-Real-IP";
 
     @Operation(summary = "답변 목록 조회",
             description = "사용자의 학습 기록 목록을 조회합니다 (본인만). "
@@ -116,20 +121,23 @@ public class AnswerController {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "제출 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "질문을 찾을 수 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "질문을 찾을 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "요청 속도 제한 초과")
     })
     @PostMapping(value = "/interview/answers", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<AnswerSubmitResponse>> submitAnswer(
             @AuthenticationPrincipal SecurityUserAccount principal,
-            @Valid @ModelAttribute AnswerSubmitRequest request
+            @Valid @ModelAttribute AnswerSubmitRequest request,
+            HttpServletRequest httpRequest
     ) {
         Long accountId = principal.getAccount().getId();
+        String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
         AnswerSubmitCommand command = new AnswerSubmitCommand(request.questionId(), request.answerText(), request.answerType());
 
-        AnswerSubmitResult submitResult = answerApplicationService.submit(accountId, command);
+        AnswerSubmitResult submitResult = answerApplicationService.submit(accountId, command, clientIp);
 
-        log.info("POST /api/interview/answers - accountId: {}, questionId: {}",
-                accountId, request.questionId());
+        log.info("POST /api/interview/answers - accountId: {}, questionId: {}, clientIp: {}",
+                accountId, request.questionId(), clientIp);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(MESSAGE_ANSWER_SUBMITTED, submitResult.from()));

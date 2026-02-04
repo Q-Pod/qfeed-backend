@@ -53,9 +53,6 @@ jwt:
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
-  parameter-store:
-    enabled: ${AWS_PARAMETER_STORE_ENABLED}
-    path: ${AWS_PARAMETER_STORE_PATH:}
   s3:
     bucket-name: ${AWS_S3_BUCKET_NAME}
     cdn-url-prefix: ${AWS_S3_CDN_URL_PREFIX}
@@ -94,3 +91,40 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
     display-request-duration: true
+
+abuse:
+  guard:
+    # Rate Limit
+    user-per-minute: ${ABUSE_GUARD_USER_PER_MINUTE:3}
+    user-per-hour: ${ABUSE_GUARD_USER_PER_HOUR:30}
+    ip-per-minute: ${ABUSE_GUARD_IP_PER_MINUTE:15}
+    question-cooldown-seconds: ${ABUSE_GUARD_QUESTION_COOLDOWN_SECONDS:60}
+    question-consecutive-limit: ${ABUSE_GUARD_QUESTION_CONSECUTIVE_LIMIT:3}
+
+    # Content Quality
+    max-whitespace-ratio: ${ABUSE_GUARD_MAX_WHITESPACE_RATIO:0.4}
+    max-repeat-char-count: ${ABUSE_GUARD_MAX_REPEAT_CHAR_COUNT:5}
+    min-korean-english-ratio: ${ABUSE_GUARD_MIN_KOREAN_ENGLISH_RATIO:0.5}
+
+    # Duplicate
+    similarity-threshold: ${ABUSE_GUARD_SIMILARITY_THRESHOLD:0.9}
+
+    # Quality Score
+    min-score-for-feedback: ${ABUSE_GUARD_MIN_SCORE_FOR_FEEDBACK:60}
+    min-score-for-accept: ${ABUSE_GUARD_MIN_SCORE_FOR_ACCEPT:30}
+
+    # Quota
+    daily-quota-limit: ${ABUSE_GUARD_DAILY_QUOTA_LIMIT:15}
+    soft-quota-limit: ${ABUSE_GUARD_SOFT_QUOTA_LIMIT:10}
+
+    # Guard 활성화 설정
+    rate-limit:
+      enabled: ${ABUSE_GUARD_RATE_LIMIT_ENABLED:true}
+    content-quality:
+      enabled: ${ABUSE_GUARD_CONTENT_QUALITY_ENABLED:true}
+    duplicate:
+      enabled: ${ABUSE_GUARD_DUPLICATE_ENABLED:true}
+    quality-score:
+      enabled: ${ABUSE_GUARD_QUALITY_SCORE_ENABLED:true}
+    quota:
+      enabled: ${ABUSE_GUARD_QUOTA_ENABLED:true}

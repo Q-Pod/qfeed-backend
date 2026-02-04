@@ -14,11 +14,15 @@ public record AnswerSubmitResult(
         return new AnswerSubmitResult(answerId, feedback, DEFAULT_FEEDBACK_STATUS);
     }
 
+    public static AnswerSubmitResult noAiFeedback(Long answerId, ImmediateFeedbackResult feedback) {
+        return new AnswerSubmitResult(answerId, feedback, FeedbackStatus.NOT_AVAILABLE);
+    }
+
     public AnswerSubmitResponse from() {
         return new AnswerSubmitResponse(
             this.answerId,
             this.immediateFeedback.of(),
-            DEFAULT_FEEDBACK_STATUS.name()
+            this.aiFeedbackStatus.name()
         );
     }
 }

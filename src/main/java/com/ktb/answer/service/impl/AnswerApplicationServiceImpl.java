@@ -2,6 +2,9 @@ package com.ktb.answer.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.ktb.abuse.core.AbuseCheckContext;
+import com.ktb.abuse.core.AbuseGuard;
+import com.ktb.abuse.core.AbuseGuardResult;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
@@ -73,6 +76,7 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     private final AnswerHashtagRepository answerHashtagRepository;
     private final HashtagRepository hashtagRepository;
     private final AnswerMetricRepository answerMetricRepository;
+    private final AbuseGuard abuseGuard;
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
@@ -125,12 +129,20 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
     @Override
     @Transactional
-    public AnswerSubmitResult submit(Long accountId, AnswerSubmitCommand command)
+    public AnswerSubmitResult submit(Long accountId, AnswerSubmitCommand command, String clientIp)
             throws QuestionNotFoundException, QuestionDisabledException,
             FileSizeExceededException, FileExtensionNotAllowedException,
             FileNotFoundException, FileAlreadyDeletedException, FileStorageMigrationException {
 
         log.info("Submitting answer for questionId: {}, accountId: {}", command.questionId(), accountId);
+
+        AbuseCheckContext abuseContext = AbuseCheckContext.of(
+                accountId,
+                command.questionId(),
+                clientIp,
+                command.answerText()
+        );
+        AbuseGuardResult abuseResult = abuseGuard.check(abuseContext);
 
         QuestionDetailResponse question = questionService.getQuestionDetail(command.questionId());
         validateQuestionEnabled(question);
@@ -144,17 +156,22 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
                 command.answerType()
         );
 
-        Answer savedAnswer = answerRepository.save(answer);
-
         ImmediateFeedbackResult immediateFeedback = immediateFeedbackService.evaluate(
                 question.questionId(),
-                savedAnswer.getContent()
+                answer.getContent()
         );
 
-        saveAnswerHashtags(savedAnswer, immediateFeedback);
+        saveAnswerHashtags(answer, immediateFeedback);
+
+        if (!abuseResult.shouldProvideFeedback()) {
+            answer.transitionTo(AnswerStatus.NOT_AVAILABLE);
+            log.info("Answer saved without AI feedback - accountId: {}, reason: {}",
+                    accountId, abuseResult.getReason());
+            return AnswerSubmitResult.noAiFeedback(answer.getId(), immediateFeedback);
+        }
 
         // TODO: MVP V2 AI 피드백 이벤트 발행
-        return AnswerSubmitResult.processing(savedAnswer.getId(), immediateFeedback);
+        return AnswerSubmitResult.processing(answer.getId(), immediateFeedback);
     }
 
     private void saveAnswerHashtags(Answer answer, ImmediateFeedbackResult feedback) {
@@ -205,7 +222,7 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
     @Override
     public AnswerDetailResult getDetail(Long accountId, Long answerId, AnswerDetailQuery query)
-            throws AnswerNotFoundException, AnswerAccessDeniedException {
+        throws AnswerNotFoundException, AnswerAccessDeniedException {
 
         log.debug("Retrieving answer detail for answerId: {}, accountId: {}", answerId, accountId);
 

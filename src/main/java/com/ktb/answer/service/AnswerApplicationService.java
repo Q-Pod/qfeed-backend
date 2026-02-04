@@ -53,6 +53,9 @@ public interface AnswerApplicationService {
     /**
      * 답변 제출 (연습/단일 답변)
      *
+     * @param accountId 현재 사용자 ID
+     * @param command   답변 제출 정보
+     * @param clientIp  클라이언트 IP 주소 (어뷰징 방지용)
      * @throws QuestionNotFoundException        질문이 존재하지 않는 경우 (404)
      * @throws QuestionDisabledException        질문이 비활성화된 경우 (400)
      * @throws FileSizeExceededException        파일 크기가 초과된 경우 (422)
@@ -62,7 +65,7 @@ public interface AnswerApplicationService {
      * @throws FileStorageMigrationException    저장소 이동 중 장애가 발생한 경우 (422)
      */
     @Transactional
-    AnswerSubmitResult submit(Long accountId, AnswerSubmitCommand command)
+    AnswerSubmitResult submit(Long accountId, AnswerSubmitCommand command, String clientIp)
             throws QuestionNotFoundException, QuestionDisabledException,
             FileSizeExceededException, FileExtensionNotAllowedException,
             FileNotFoundException, FileAlreadyDeletedException, FileStorageMigrationException;

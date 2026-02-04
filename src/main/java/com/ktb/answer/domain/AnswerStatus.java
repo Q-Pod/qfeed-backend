@@ -14,6 +14,7 @@ public enum AnswerStatus {
     IMMEDIATE_FEEDBACK_READY("즉각 피드백 준비됨"),
 
     AI_FEEDBACK_PROCESSING("AI 피드백 처리 중"),
+    NOT_AVAILABLE("답변 품질 낮음"),
 
     COMPLETED("완료"),
 
@@ -28,9 +29,11 @@ public enum AnswerStatus {
             case SUBMITTED -> nextStatus == TRANSCRIBING ||
                               nextStatus == IMMEDIATE_FEEDBACK_READY ||
                               nextStatus == AI_FEEDBACK_PROCESSING ||
+                              nextStatus == NOT_AVAILABLE ||
                               nextStatus == FAILED;
 
             case TRANSCRIBING -> nextStatus == IMMEDIATE_FEEDBACK_READY ||
+                                 nextStatus == NOT_AVAILABLE ||
                                  nextStatus == FAILED;
 
             case IMMEDIATE_FEEDBACK_READY, FAILED_RETRYABLE -> nextStatus == AI_FEEDBACK_PROCESSING ||
@@ -40,7 +43,7 @@ public enum AnswerStatus {
                                            nextStatus == FAILED_RETRYABLE ||
                                            nextStatus == FAILED;
 
-            case COMPLETED, FAILED -> false; // 종료 상태에서는 전이 불가
+            case COMPLETED, FAILED, NOT_AVAILABLE -> false; // 종료 상태에서는 전이 불가
         };
     }
 }

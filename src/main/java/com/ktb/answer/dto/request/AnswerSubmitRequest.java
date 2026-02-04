@@ -17,6 +17,7 @@ public record AnswerSubmitRequest(
         @Schema(description = "답변 텍스트 (최대 5,000자, answerText 또는 audioFile 중 최소 1개 필수)",
                 example = "프로세스는 실행 중인 프로그램의 인스턴스이며...",
                 maxLength = MAX_ANSWER_TEXT_LENGTH)
+        @Size(min = MIN_ANSWER_TEXT_LENGTH, message = "답변 텍스트는 최소 {min}자가 필요합니다")
         @Size(max = MAX_ANSWER_TEXT_LENGTH, message = "답변 텍스트는 {max}자를 초과할 수 없습니다")
         @NotBlank(message = "답변 내용은 필수입니다")
         String answerText,
@@ -27,5 +28,6 @@ public record AnswerSubmitRequest(
         AnswerType answerType
 ) {
 
+    public static final int MIN_ANSWER_TEXT_LENGTH = 50;
     public static final int MAX_ANSWER_TEXT_LENGTH = 1_500;
 }

@@ -99,6 +99,13 @@ public enum ErrorCode {
     STT_TIMEOUT(408, "STT006", "STT 변환 시간이 초과되었습니다"),
     STT_REQUEST_FAILED(422, "STT007", "STT 요청에 실패했습니다"),
 
+    // ==================== Abuse 관련 ====================
+    ABUSE_RATE_LIMIT_EXCEEDED(429, "ABUSE001", "요청 속도 제한을 초과했습니다"),
+    ABUSE_DUPLICATE_CONTENT(409, "ABUSE002", "중복된 답변입니다"),
+    ABUSE_LOW_QUALITY_CONTENT(400, "ABUSE003", "답변 품질이 기준에 미달합니다"),
+    ABUSE_DAILY_QUOTA_EXCEEDED(429, "ABUSE004", "일일 제출 한도를 초과했습니다"),
+    ABUSE_COOLDOWN_ACTIVE(429, "ABUSE005", "재시도 대기 시간이 남아있습니다"),
+
     // ==================== 공통 ====================
     INVALID_INPUT(400, "C001", "입력값이 올바르지 않습니다"),
     INTERNAL_SERVER_ERROR(422, "C002", "서버 내부 오류가 발생했습니다"),
