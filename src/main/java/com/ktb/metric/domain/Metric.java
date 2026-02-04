@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +20,9 @@ import lombok.ToString;
 @Entity
 @Table(
         name = "METRIC",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_metric_name", columnNames = "metric_nm")
+        },
         indexes = {
                 @Index(name = "idx_use_yn", columnList = "metric_use_yn"),
                 @Index(name = "idx_created", columnList = "metric_created_at")

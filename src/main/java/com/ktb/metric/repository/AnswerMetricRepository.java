@@ -14,6 +14,7 @@ public interface AnswerMetricRepository extends JpaRepository<AnswerMetric, Long
             SELECT am FROM AnswerMetric am
             JOIN FETCH am.metric m
             WHERE am.answer.id = :answerId
+            AND am.deletedAt IS NULL
             ORDER BY m.id ASC
             """)
     List<AnswerMetric> findByAnswerIdWithMetric(@Param("answerId") Long answerId);

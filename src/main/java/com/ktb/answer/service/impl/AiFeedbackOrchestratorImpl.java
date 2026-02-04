@@ -6,9 +6,7 @@ import com.ktb.ai.feedback.dto.response.AiFeedbackFeedback;
 import com.ktb.ai.feedback.dto.response.AiFeedbackMetric;
 import com.ktb.ai.feedback.dto.response.BadCaseType;
 import com.ktb.ai.feedback.service.AiFeedbackService;
-import com.ktb.common.dto.ApiResponse;
 import com.ktb.answer.domain.Answer;
-import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.dto.FeedbackStatus;
 import com.ktb.answer.dto.response.FeedbackResponse;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
@@ -16,10 +14,16 @@ import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AiFeedbackOrchestrator;
 import com.ktb.auth.domain.UserAccount;
+import com.ktb.common.dto.ApiResponse;
+import com.ktb.metric.domain.AnswerMetric;
+import com.ktb.metric.domain.Metric;
+import com.ktb.metric.repository.MetricRepository;
 import com.ktb.question.domain.Question;
+import java.util.ArrayList;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +37,7 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
 
     private final AnswerRepository answerRepository;
     private final AiFeedbackService aiFeedbackService;
+    private final MetricRepository metricRepository;
 
     @Override
     @Transactional
@@ -136,7 +141,6 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
 
         String failureMessage = badCaseType.getMessage() + "\n\n" + badCaseType.getGuidance();
 
-//        answer.transitionTo(AnswerStatus.COMPLETED);
         answer.setAiFeedback(badCaseType.getGuidance());
         answerRepository.save(answer);
 
@@ -147,6 +151,8 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
 
     private FeedbackResponse handleSuccessResponse(Answer answer, ApiResponse<AiFeedbackResponse> apiResponse) {
         AiFeedbackResponse data = apiResponse.data();
+
+        saveAnswerMetrics(answer, data.metrics());
 
         List<FeedbackResponse.RadarChartMetric> radarChart = convertToRadarChart(data.metrics());
         String combinedFeedback = combineFeedback(data.feedback());
@@ -170,6 +176,37 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
                         5                     // maxScore
                 ))
                 .collect(Collectors.toList());
+    }
+
+    private void saveAnswerMetrics(Answer answer, List<AiFeedbackMetric> aiMetrics) {
+        if (aiMetrics == null || aiMetrics.isEmpty()) {
+            answer.upsertAnswerMetrics(List.of());
+            return;
+        }
+
+        List<AnswerMetric> answerMetrics = new ArrayList<>(aiMetrics.size());
+        for (AiFeedbackMetric aiMetric : aiMetrics) {
+            Metric metric = findOrCreateMetric(aiMetric.name());
+            int score = aiMetric.score() == null ? 1 : aiMetric.score();
+            answerMetrics.add(AnswerMetric.create(answer, metric, score));
+        }
+
+        answer.upsertAnswerMetrics(answerMetrics);
+    }
+
+    private Metric findOrCreateMetric(String metricName) {
+        return metricRepository.findByName(metricName)
+                .orElseGet(() -> createMetric(metricName));
+    }
+
+    private Metric createMetric(String metricName) {
+        try {
+            return metricRepository.save(Metric.create(metricName, null));
+        } catch (DataIntegrityViolationException e) {
+            // Unique constraint can fail under race; re-read the row that won.
+            return metricRepository.findByName(metricName)
+                    .orElseThrow(() -> e);
+        }
     }
 
     private String combineFeedback(AiFeedbackFeedback feedback) {

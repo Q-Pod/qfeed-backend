@@ -1,8 +1,7 @@
 package com.ktb.metric.domain;
 
 import com.ktb.answer.domain.Answer;
-import com.ktb.common.domain.BaseTimeEntity;
-import com.ktb.common.domain.ErrorCode;
+import com.ktb.common.domain.BaseSoftDeleteEntity;
 import com.ktb.metric.exception.MetricInvalidRangeException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,7 +32,7 @@ import lombok.ToString;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @ToString(exclude = {"answer", "metric"})
-public class AnswerMetric extends BaseTimeEntity {
+public class AnswerMetric extends BaseSoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,8 +50,8 @@ public class AnswerMetric extends BaseTimeEntity {
     @Column(name = "answer_metric_score", nullable = false)
     private int score;
 
-    private final static int MIN_SCORE = 0;
-    private final static int MAX_SCORE = 100;
+    private final static int MIN_SCORE = 1;
+    private final static int MAX_SCORE = 5;
 
     @Builder
     private AnswerMetric(Answer answer, Metric metric, int score) {

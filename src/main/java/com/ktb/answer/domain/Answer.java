@@ -5,7 +5,9 @@ import com.ktb.answer.exception.AnswerRequiredTypeException;
 import com.ktb.answer.exception.InvalidAnswerStatusTransitionException;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.common.domain.BaseSoftDeleteEntity;
+import com.ktb.metric.domain.AnswerMetric;
 import com.ktb.question.domain.Question;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,7 +19,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -68,6 +79,9 @@ public class Answer extends BaseSoftDeleteEntity {
     @Column(name = "answer_ai_feedback", columnDefinition = "TEXT")
     private String aiFeedback;
 
+    @OneToMany(mappedBy = "answer", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    private final List<AnswerMetric> answerMetrics = new ArrayList<>();
+
     @Builder
     private Answer(Question question, UserAccount account, String content,
                    AnswerType type) {
@@ -102,6 +116,38 @@ public class Answer extends BaseSoftDeleteEntity {
     public void setAiFeedback(String feedback) {
         this.aiFeedback = feedback;
         this.status = AnswerStatus.COMPLETED;
+    }
+
+    public void upsertAnswerMetrics(List<AnswerMetric> newMetrics) {
+        Map<Long, AnswerMetric> existingByMetricId = this.answerMetrics.stream()
+                .collect(Collectors.toMap(
+                        metric -> metric.getMetric().getId(),
+                        Function.identity(),
+                        (left, right) -> left
+                ));
+
+        Set<Long> incomingMetricIds = new HashSet<>();
+        for (AnswerMetric newMetric : newMetrics) {
+            Long metricId = newMetric.getMetric().getId();
+            incomingMetricIds.add(metricId);
+            AnswerMetric existing = existingByMetricId.get(metricId);
+            if (existing == null) {
+                this.answerMetrics.add(newMetric);
+            } else {
+                existing.restore();
+                existing.updateScore(newMetric.getScore());
+            }
+        }
+
+        for (AnswerMetric existing : this.answerMetrics) {
+            if (!incomingMetricIds.contains(existing.getMetric().getId())) {
+                existing.softDelete();
+            }
+        }
+    }
+
+    public List<AnswerMetric> getAnswerMetrics() {
+        return Collections.unmodifiableList(answerMetrics);
     }
 
     private void validateType(AnswerType type) {

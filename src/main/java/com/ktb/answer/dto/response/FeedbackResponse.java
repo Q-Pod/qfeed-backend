@@ -33,10 +33,10 @@ public record FeedbackResponse(
             @Schema(description = "평가 지표 설명", example = "답변의 논리적 흐름과 구조")
             String metricDescription,
 
-            @Schema(description = "획득 점수", example = "85", minimum = "0", maximum = "100")
+            @Schema(description = "획득 점수", example = "4", minimum = "1", maximum = "5")
             int score,
 
-            @Schema(description = "최대 점수", example = "100")
+            @Schema(description = "최대 점수", example = "5")
             int maxScore
     ) {
     }
