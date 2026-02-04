@@ -54,7 +54,7 @@ public class Answer extends BaseSoftDeleteEntity {
     @JoinColumn(name = "account_id", nullable = false)
     private UserAccount account;
 
-    @Column(name = "answer_content", nullable = false, length = 500)
+    @Column(name = "answer_content", columnDefinition = "TEXT")
     private String content;
 
     @Enumerated(EnumType.STRING)

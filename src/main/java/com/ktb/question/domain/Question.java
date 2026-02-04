@@ -13,6 +13,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -22,8 +23,14 @@ import lombok.ToString;
 
 @Entity
 @Table(
-        name = "QUESTION",
-        indexes = {}
+    name = "QUESTION",
+    indexes = {
+        @Index(name = "idx_type", columnList = "question_type_cd"),
+        @Index(name = "idx_ctg", columnList = "question_ctg"),
+        @Index(name = "idx_use", columnList = "use_yn, deleted_at"),
+        @Index(name = "idx_type_ctg_use", columnList = "question_type_cd, question_ctg, use_yn"),
+        @Index(name = "idx_created", columnList = "created_at")
+    }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
