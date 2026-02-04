@@ -93,7 +93,7 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
         Answer answer = answerRepository.findById(answerId)
                 .orElseThrow(() -> new AnswerNotFoundException(answerId));
 
-        return mapAnswerStatusToFeedbackStatus(answer.getStatus());
+        return FeedbackStatus.from(answer.getStatus());
     }
 
     @Override
@@ -184,15 +184,5 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
         if (!Objects.equals(answerUserId, jwtUserId)) {
             throw new AnswerAccessDeniedException(jwtUserId, answerUserId);
         }
-    }
-
-    private FeedbackStatus mapAnswerStatusToFeedbackStatus(AnswerStatus answerStatus) {
-        return switch (answerStatus) {
-            case AI_FEEDBACK_PROCESSING -> FeedbackStatus.PROCESSING;
-            case COMPLETED -> FeedbackStatus.COMPLETED;
-            case FAILED -> FeedbackStatus.FAILED;
-            case FAILED_RETRYABLE -> FeedbackStatus.FAILED_RETRYABLE;
-            default -> FeedbackStatus.NOT_AVAILABLE;
-        };
     }
 }

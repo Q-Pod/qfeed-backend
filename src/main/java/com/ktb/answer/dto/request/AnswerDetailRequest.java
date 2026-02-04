@@ -1,7 +1,10 @@
 package com.ktb.answer.dto.request;
 
+import com.ktb.answer.dto.AnswerDetailQuery;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 답변 상세 조회 요청 DTO
@@ -16,7 +19,17 @@ public record AnswerDetailRequest(
         String expand
 ) {
 
-    private static final String EXPAND_QUESTION = "question";
-    private static final String EXPAND_FEEDBACK = "feedback";
-    private static final String EXPAND_IMMEDIATE_FEEDBACK = "immediate_feedback";
+    /**
+     * expand 문자열을 AnswerDetailQuery로 변환
+     */
+    public AnswerDetailQuery toQuery() {
+        if (expand == null || expand.isBlank()) {
+            return AnswerDetailQuery.empty();
+        }
+        List<String> values = Arrays.stream(expand.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        return AnswerDetailQuery.of(values);
+    }
 }

@@ -80,4 +80,8 @@ public class AnswerMetric extends BaseTimeEntity {
             throw new MetricInvalidRangeException();
         }
     }
+
+    public String getMetricName() {
+        return this.metric.getName();
+    }
 }

@@ -1,5 +1,7 @@
 package com.ktb.answer.controller;
 
+import com.ktb.answer.dto.AnswerDetailQuery;
+import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.AnswerSubmitCommand;
 import com.ktb.answer.dto.AnswerSubmitResult;
 import com.ktb.answer.dto.request.AnswerDetailRequest;
@@ -93,22 +95,20 @@ public class AnswerController {
     })
     @GetMapping("/answers/{answerId}")
     public ResponseEntity<ApiResponse<AnswerDetailResponse>> getAnswerDetail(
-            @Parameter(hidden = true) Long accountId,  // TODO: Spring Security에서 주입
+            @AuthenticationPrincipal SecurityUserAccount principal,
             @Parameter(description = "답변 ID", example = "1")
             @PathVariable Long answerId,
             @Valid @ModelAttribute AnswerDetailRequest request
     ) {
-        // TODO: 구현 필요
-        // 1. accountId 추출
-        // 2. Service 호출 (소유권 검증 포함)
-        // 3. expand 파라미터 처리
-        // 4. Result를 Response DTO로 변환
-        // 5. ApiResponse로 래핑하여 반환
-
+        Long accountId = principal.getAccount().getId();
         log.info("GET /api/answers/{} - accountId: {}", answerId, accountId);
 
+        AnswerDetailQuery query = request.toQuery();
+        AnswerDetailResult detailResult = answerApplicationService.getDetail(accountId, answerId, query);
+        AnswerDetailResponse response = AnswerDetailResponse.of(detailResult);
+
         return ResponseEntity.ok(
-                new ApiResponse<>(MESSAGE_ANSWER_DETAIL_RETRIEVED, null)
+                new ApiResponse<>(MESSAGE_ANSWER_DETAIL_RETRIEVED, response)
         );
     }
 

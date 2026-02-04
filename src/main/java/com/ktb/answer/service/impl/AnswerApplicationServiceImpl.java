@@ -5,13 +5,18 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
+import com.ktb.answer.dto.AiFeedbackSummary;
+import com.ktb.answer.dto.AnswerContentResult;
 import com.ktb.answer.dto.AnswerDetailQuery;
 import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.AnswerListCursor;
 import com.ktb.answer.dto.AnswerSubmitCommand;
 import com.ktb.answer.dto.AnswerSubmitResult;
 import com.ktb.answer.dto.FeedbackResult;
+import com.ktb.answer.dto.FeedbackStatus;
 import com.ktb.answer.dto.ImmediateFeedbackResult;
+import com.ktb.answer.dto.KeywordCheckResult;
+import com.ktb.answer.dto.QuestionSummary;
 import com.ktb.answer.dto.response.AnswerListResponse;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
 import com.ktb.answer.exception.AnswerNotFoundException;
@@ -31,6 +36,8 @@ import com.ktb.hashtag.domain.Hashtag;
 import com.ktb.hashtag.exception.HashtagNotFoundException;
 import com.ktb.hashtag.repository.AnswerHashtagRepository;
 import com.ktb.hashtag.repository.HashtagRepository;
+import com.ktb.metric.domain.AnswerMetric;
+import com.ktb.metric.repository.AnswerMetricRepository;
 import com.ktb.question.domain.Question;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
@@ -45,6 +52,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -63,6 +72,7 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     private final ImmediateFeedbackService immediateFeedbackService;
     private final AnswerHashtagRepository answerHashtagRepository;
     private final HashtagRepository hashtagRepository;
+    private final AnswerMetricRepository answerMetricRepository;
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
@@ -197,22 +207,88 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     public AnswerDetailResult getDetail(Long accountId, Long answerId, AnswerDetailQuery query)
             throws AnswerNotFoundException, AnswerAccessDeniedException {
 
-        // TODO: MVP V2 구현 필요
-        // 1. Answer 조회
-        // 2. 소유권 검증
-        // 3. expand 파라미터에 따라 추가 데이터 조회
-        //    - expand=question: Question 정보 포함
-        //    - expand=feedback: ANSWER_METRIC, AI 피드백 포함
-        //    - expand=immediate_feedback: 즉각 피드백 포함
-        // 4. DTO로 변환하여 반환
-
         log.debug("Retrieving answer detail for answerId: {}, accountId: {}", answerId, accountId);
 
+        // 1. Answer 조회 (Question eager load)
         Answer answer = findAnswerById(answerId);
+
+        // 2. 소유권 검증
         validateOwnership(answer, accountId);
 
-        // TODO: expand 처리 및 DTO 변환
-        return null;
+        // 3. 기본 Answer 정보 구성
+        AnswerContentResult answerContent = new AnswerContentResult(
+            answer.getContent(),
+            null,  // audioUrl (MVP V2: 파일 연동 시 구현)
+            null,  // videoUrl (MVP V2: 파일 연동 시 구현)
+            answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString()
+        );
+
+        // 4. expand 파라미터에 따라 추가 데이터 조회
+        QuestionSummary questionSummary = null;
+        if (query.includeQuestion()) {
+            Question question = answer.getQuestion();
+            questionSummary = new QuestionSummary(
+                question.getId(),
+                question.getContent(),
+                question.getCategory().name(),
+                question.getType().name()
+            );
+        }
+
+        ImmediateFeedbackResult immediateFeedback = null;
+        if (query.includeImmediateFeedback()) {
+            immediateFeedback = loadImmediateFeedback(answerId);
+        }
+
+        AiFeedbackSummary aiFeedback = null;
+        if (query.includeFeedback()) {
+            aiFeedback = loadAiFeedback(answer);
+        }
+
+        // 5. DTO 구성 및 반환
+        return new AnswerDetailResult(
+            answer.getId(),
+            answer.getStatus(),
+            answer.getType(),
+            questionSummary,
+            answerContent,
+            immediateFeedback,
+            aiFeedback
+        );
+    }
+
+    private ImmediateFeedbackResult loadImmediateFeedback(Long answerId) {
+        List<AnswerHashtag> answerHashtags = answerHashtagRepository.findByAnswerIdWithHashtag(answerId);
+
+        List<KeywordCheckResult> keywords = answerHashtags.stream()
+            .map(ah -> new KeywordCheckResult(
+                ah.getHashtag().getId(),
+                ah.getHashtag().getName(),
+                ah.isIncluded()
+            ))
+            .toList();
+
+        return new ImmediateFeedbackResult(keywords);
+    }
+
+    private AiFeedbackSummary loadAiFeedback(Answer answer) {
+        // FeedbackStatus enum의 from() 메서드 사용 (중복 코드 제거)
+        FeedbackStatus status = FeedbackStatus.from(answer.getStatus());
+
+        if (status != FeedbackStatus.COMPLETED) {
+            return new AiFeedbackSummary(status, null, null);
+        }
+
+        // COMPLETED 상태일 때만 메트릭 조회
+        List<AnswerMetric> metrics = answerMetricRepository.findByAnswerIdWithMetric(answer.getId());
+
+        Map<String, Integer> radarChart = metrics.stream()
+            .collect(Collectors.toMap(
+                AnswerMetric::getMetricName,
+                AnswerMetric::getScore
+            ));
+
+        return new AiFeedbackSummary(status, radarChart, answer.getAiFeedback());
     }
 
     @Override

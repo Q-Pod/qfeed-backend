@@ -1,5 +1,7 @@
 package com.ktb.answer.dto.response;
 
+import com.ktb.answer.dto.AiFeedbackSummary;
+import com.ktb.answer.dto.AnswerDetailResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -48,7 +50,10 @@ public record AnswerDetailResponse(
             String category,
 
             @Schema(description = "질문 타입", example = "TECHNICAL")
-            String type
+            String type,
+
+            @Schema(description = "질문 핵심 키워드", example="")
+            List<String> keywords
     ) {
     }
 
@@ -92,5 +97,58 @@ public record AnswerDetailResponse(
             @Schema(description = "점수 (0-100)", example = "85", minimum = "0", maximum = "100")
             int score
     ) {
+    }
+
+    /**
+     * AnswerDetailResult를 AnswerDetailResponse로 변환하는 정적 팩토리 메서드
+     */
+    public static AnswerDetailResponse of(AnswerDetailResult result) {
+        QuestionDetail questionDetail = null;
+        if (result.question() != null) {
+            questionDetail = new QuestionDetail(
+                result.question().questionId(),
+                result.question().content(),
+                result.question().category(),
+                result.question().type(),
+                null  // keywords는 별도 조회 필요
+            );
+        }
+
+        ImmediateFeedbackDetail immediateFeedbackDetail = null;
+        if (result.immediateFeedback() != null) {
+            List<KeywordCheck> keywords = result.immediateFeedback().keywords().stream()
+                .map(keyword -> new KeywordCheck(
+                    keyword.keyword(),
+                    keyword.included()
+                ))
+                .toList();
+            immediateFeedbackDetail = new ImmediateFeedbackDetail(keywords);
+        }
+
+        AiFeedbackDetail aiFeedbackDetail = null;
+        if (result.aiFeedback() != null) {
+            AiFeedbackSummary summary = result.aiFeedback();
+            List<MetricScore> metrics = summary.radarChart() == null
+                ? null
+                : summary.radarChart().entrySet().stream()
+                    .map(entry -> new MetricScore(entry.getKey(), entry.getValue()))
+                    .toList();
+            aiFeedbackDetail = new AiFeedbackDetail(
+                summary.status() == null ? null : summary.status().name(),
+                summary.comment(),
+                metrics
+            );
+        }
+
+        return new AnswerDetailResponse(
+            result.answerId(),
+            result.answer() == null ? null : result.answer().answerText(),
+            result.type() == null ? null : result.type().name(),
+            result.status() == null ? null : result.status().name(),
+            result.answer() == null ? null : result.answer().answeredAt(),
+            questionDetail,
+            immediateFeedbackDetail,
+            aiFeedbackDetail
+        );
     }
 }
