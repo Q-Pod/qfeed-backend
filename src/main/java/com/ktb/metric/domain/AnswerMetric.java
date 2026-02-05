@@ -2,6 +2,7 @@ package com.ktb.metric.domain;
 
 import com.ktb.answer.domain.Answer;
 import com.ktb.common.domain.BaseSoftDeleteEntity;
+import com.ktb.common.domain.BaseTimeEntity;
 import com.ktb.metric.exception.MetricInvalidRangeException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,7 +33,7 @@ import lombok.ToString;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @ToString(exclude = {"answer", "metric"})
-public class AnswerMetric extends BaseSoftDeleteEntity {
+public class AnswerMetric extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

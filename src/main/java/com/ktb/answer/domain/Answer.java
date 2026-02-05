@@ -118,34 +118,6 @@ public class Answer extends BaseSoftDeleteEntity {
         this.status = AnswerStatus.COMPLETED;
     }
 
-    public void upsertAnswerMetrics(List<AnswerMetric> newMetrics) {
-        Map<Long, AnswerMetric> existingByMetricId = this.answerMetrics.stream()
-                .collect(Collectors.toMap(
-                        metric -> metric.getMetric().getId(),
-                        Function.identity(),
-                        (left, right) -> left
-                ));
-
-        Set<Long> incomingMetricIds = new HashSet<>();
-        for (AnswerMetric newMetric : newMetrics) {
-            Long metricId = newMetric.getMetric().getId();
-            incomingMetricIds.add(metricId);
-            AnswerMetric existing = existingByMetricId.get(metricId);
-            if (existing == null) {
-                this.answerMetrics.add(newMetric);
-            } else {
-                existing.restore();
-                existing.updateScore(newMetric.getScore());
-            }
-        }
-
-        for (AnswerMetric existing : this.answerMetrics) {
-            if (!incomingMetricIds.contains(existing.getMetric().getId())) {
-                existing.softDelete();
-            }
-        }
-    }
-
     public List<AnswerMetric> getAnswerMetrics() {
         return Collections.unmodifiableList(answerMetrics);
     }

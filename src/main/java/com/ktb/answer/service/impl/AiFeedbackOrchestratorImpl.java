@@ -17,9 +17,11 @@ import com.ktb.auth.domain.UserAccount;
 import com.ktb.common.dto.ApiResponse;
 import com.ktb.metric.domain.AnswerMetric;
 import com.ktb.metric.domain.Metric;
+import com.ktb.metric.repository.AnswerMetricRepository;
 import com.ktb.metric.repository.MetricRepository;
 import com.ktb.question.domain.Question;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,7 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
     private final AnswerRepository answerRepository;
     private final AiFeedbackService aiFeedbackService;
     private final MetricRepository metricRepository;
+    private final AnswerMetricRepository answerMetricRepository;
 
     @Override
     @Transactional
@@ -180,33 +183,25 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
 
     private void saveAnswerMetrics(Answer answer, List<AiFeedbackMetric> aiMetrics) {
         if (aiMetrics == null || aiMetrics.isEmpty()) {
-            answer.upsertAnswerMetrics(List.of());
             return;
         }
 
+        Map<String, Metric> metricMap =
+            metricRepository.findAllByNameIn(aiMetrics.stream().map(AiFeedbackMetric::name).toList())
+                .stream()
+                .collect(Collectors.toMap(Metric::getName, m -> m));
+
         List<AnswerMetric> answerMetrics = new ArrayList<>(aiMetrics.size());
+
         for (AiFeedbackMetric aiMetric : aiMetrics) {
-            Metric metric = findOrCreateMetric(aiMetric.name());
+            Metric metric = metricMap.computeIfAbsent(aiMetric.name(), name ->
+                metricRepository.save(Metric.create(name, ""))
+            );
             int score = aiMetric.score() == null ? 1 : aiMetric.score();
             answerMetrics.add(AnswerMetric.create(answer, metric, score));
         }
 
-        answer.upsertAnswerMetrics(answerMetrics);
-    }
-
-    private Metric findOrCreateMetric(String metricName) {
-        return metricRepository.findByName(metricName)
-                .orElseGet(() -> createMetric(metricName));
-    }
-
-    private Metric createMetric(String metricName) {
-        try {
-            return metricRepository.save(Metric.create(metricName, null));
-        } catch (DataIntegrityViolationException e) {
-            // Unique constraint can fail under race; re-read the row that won.
-            return metricRepository.findByName(metricName)
-                    .orElseThrow(() -> e);
-        }
+        answerMetricRepository.saveAll(answerMetrics);
     }
 
     private String combineFeedback(AiFeedbackFeedback feedback) {
