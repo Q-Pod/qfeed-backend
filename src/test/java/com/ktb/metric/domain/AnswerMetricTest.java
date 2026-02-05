@@ -15,8 +15,9 @@ import static org.mockito.Mockito.mock;
 @DisplayName("AnswerMetric 도메인 테스트")
 class AnswerMetricTest {
 
-    private static final int MIN_SCORE = 0;
-    private static final int MAX_SCORE = 100;
+    private static final int MIN_SCORE = 1;
+    private static final int MAX_SCORE = 5;
+
 
     @Nested
     @DisplayName("AnswerMetric 생성 테스트")
@@ -28,7 +29,7 @@ class AnswerMetricTest {
             // Given
             Answer answer = mock(Answer.class);
             Metric metric = mock(Metric.class);
-            int score = 85;
+            int score = 3;
 
             // When
             AnswerMetric answerMetric = AnswerMetric.create(answer, metric, score);
@@ -41,7 +42,7 @@ class AnswerMetricTest {
         }
 
         @Test
-        @DisplayName("최소 점수(0)로 생성 성공")
+        @DisplayName("최소 점수(1)로 생성 성공")
         void create_WithMinScore_ShouldSucceed() {
             // Given
             Answer answer = mock(Answer.class);
@@ -55,7 +56,7 @@ class AnswerMetricTest {
         }
 
         @Test
-        @DisplayName("최대 점수(100)로 생성 성공")
+        @DisplayName("최대 점수(5)로 생성 성공")
         void create_WithMaxScore_ShouldSucceed() {
             // Given
             Answer answer = mock(Answer.class);
@@ -69,8 +70,8 @@ class AnswerMetricTest {
         }
 
         @ParameterizedTest
-        @ValueSource(ints = {0, 1, 25, 50, 75, 99, 100})
-        @DisplayName("0~100 범위 내 모든 점수로 생성 가능")
+        @ValueSource(ints = {1, 2, 3, 4, 5})
+        @DisplayName("1~5 범위 내 모든 점수로 생성 가능")
         void create_WithValidScores_ShouldSucceed(int score) {
             // Given
             Answer answer = mock(Answer.class);
@@ -96,14 +97,14 @@ class AnswerMetricTest {
         }
 
         @Test
-        @DisplayName("점수가 101이면 MetricInvalidRangeException 발생")
+        @DisplayName("점수가 6이면 MetricInvalidRangeException 발생")
         void create_WithScoreExceedingMax_ShouldThrowException() {
             // Given
             Answer answer = mock(Answer.class);
             Metric metric = mock(Metric.class);
 
             // When & Then
-            assertThatThrownBy(() -> AnswerMetric.create(answer, metric, 101))
+            assertThatThrownBy(() -> AnswerMetric.create(answer, metric, 6))
                     .isInstanceOf(MetricInvalidRangeException.class);
         }
 
@@ -121,8 +122,8 @@ class AnswerMetricTest {
         }
 
         @ParameterizedTest
-        @ValueSource(ints = {101, 150, 200, 999999})
-        @DisplayName("100 초과 점수로 생성 시 MetricInvalidRangeException 발생")
+        @ValueSource(ints = {6, 7, 10, 999999})
+        @DisplayName("5 초과 점수로 생성 시 MetricInvalidRangeException 발생")
         void create_WithScoresExceedingMax_ShouldThrowException(int score) {
             // Given
             Answer answer = mock(Answer.class);
@@ -142,8 +143,8 @@ class AnswerMetricTest {
         @DisplayName("유효한 점수로 업데이트 성공")
         void updateScore_WithValidScore_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
-            int newScore = 90;
+            AnswerMetric answerMetric = createAnswerMetric(3);
+            int newScore = 4;
 
             // When
             answerMetric.updateScore(newScore);
@@ -153,10 +154,10 @@ class AnswerMetricTest {
         }
 
         @Test
-        @DisplayName("점수를 0으로 업데이트 가능")
+        @DisplayName("점수를 1로 업데이트 가능")
         void updateScore_ToMinScore_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
+            AnswerMetric answerMetric = createAnswerMetric(3);
 
             // When
             answerMetric.updateScore(MIN_SCORE);
@@ -166,10 +167,10 @@ class AnswerMetricTest {
         }
 
         @Test
-        @DisplayName("점수를 100으로 업데이트 가능")
+        @DisplayName("점수를 5로 업데이트 가능")
         void updateScore_ToMaxScore_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
+            AnswerMetric answerMetric = createAnswerMetric(3);
 
             // When
             answerMetric.updateScore(MAX_SCORE);
@@ -182,33 +183,33 @@ class AnswerMetricTest {
         @DisplayName("점수 증가 업데이트")
         void updateScore_Increasing_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(30);
+            AnswerMetric answerMetric = createAnswerMetric(2);
 
             // When
-            answerMetric.updateScore(70);
+            answerMetric.updateScore(4);
 
             // Then
-            assertThat(answerMetric.getScore()).isEqualTo(70);
+            assertThat(answerMetric.getScore()).isEqualTo(4);
         }
 
         @Test
         @DisplayName("점수 감소 업데이트")
         void updateScore_Decreasing_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(90);
+            AnswerMetric answerMetric = createAnswerMetric(5);
 
             // When
-            answerMetric.updateScore(40);
+            answerMetric.updateScore(2);
 
             // Then
-            assertThat(answerMetric.getScore()).isEqualTo(40);
+            assertThat(answerMetric.getScore()).isEqualTo(2);
         }
 
         @Test
         @DisplayName("점수를 -1로 업데이트 시 MetricInvalidRangeException 발생")
         void updateScore_WithNegativeScore_ShouldThrowException() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
+            AnswerMetric answerMetric = createAnswerMetric(3);
 
             // When & Then
             assertThatThrownBy(() -> answerMetric.updateScore(-1))
@@ -216,13 +217,13 @@ class AnswerMetricTest {
         }
 
         @Test
-        @DisplayName("점수를 101로 업데이트 시 MetricInvalidRangeException 발생")
+        @DisplayName("점수를 6으로 업데이트 시 MetricInvalidRangeException 발생")
         void updateScore_WithScoreExceedingMax_ShouldThrowException() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
+            AnswerMetric answerMetric = createAnswerMetric(3);
 
             // When & Then
-            assertThatThrownBy(() -> answerMetric.updateScore(101))
+            assertThatThrownBy(() -> answerMetric.updateScore(6))
                     .isInstanceOf(MetricInvalidRangeException.class);
         }
 
@@ -230,28 +231,28 @@ class AnswerMetricTest {
         @DisplayName("여러 번 점수 업데이트 가능")
         void updateScore_Multiple_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
+            AnswerMetric answerMetric = createAnswerMetric(2);
 
             // When
-            answerMetric.updateScore(60);
-            answerMetric.updateScore(70);
-            answerMetric.updateScore(80);
+            answerMetric.updateScore(3);
+            answerMetric.updateScore(4);
+            answerMetric.updateScore(5);
 
             // Then
-            assertThat(answerMetric.getScore()).isEqualTo(80);
+            assertThat(answerMetric.getScore()).isEqualTo(5);
         }
 
         @Test
         @DisplayName("동일한 점수로 업데이트 가능")
         void updateScore_WithSameScore_ShouldSucceed() {
             // Given
-            AnswerMetric answerMetric = createAnswerMetric(50);
+            AnswerMetric answerMetric = createAnswerMetric(3);
 
             // When
-            answerMetric.updateScore(50);
+            answerMetric.updateScore(3);
 
             // Then
-            assertThat(answerMetric.getScore()).isEqualTo(50);
+            assertThat(answerMetric.getScore()).isEqualTo(3);
         }
     }
 
@@ -266,7 +267,7 @@ class AnswerMetricTest {
             Metric metric = mock(Metric.class);
 
             // When
-            AnswerMetric answerMetric = AnswerMetric.create(null, metric, 50);
+            AnswerMetric answerMetric = AnswerMetric.create(null, metric, 3);
 
             // Then
             assertThat(answerMetric.getAnswer()).isNull();
@@ -279,7 +280,7 @@ class AnswerMetricTest {
             Answer answer = mock(Answer.class);
 
             // When
-            AnswerMetric answerMetric = AnswerMetric.create(answer, null, 50);
+            AnswerMetric answerMetric = AnswerMetric.create(answer, null, 3);
 
             // Then
             assertThat(answerMetric.getMetric()).isNull();
@@ -293,7 +294,7 @@ class AnswerMetricTest {
             Metric metric = mock(Metric.class);
 
             // When
-            AnswerMetric answerMetric = AnswerMetric.create(answer, metric, 50);
+            AnswerMetric answerMetric = AnswerMetric.create(answer, metric, 3);
 
             // Then
             assertThat(answerMetric.getAnswer()).isNotNull();
