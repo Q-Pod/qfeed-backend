@@ -26,7 +26,7 @@ public class TokenServiceImpl implements TokenService {
 
     @Override
     public String issueAccessToken(Long accountId, List<String> roles, String nickname) {
-        if(nickname.isBlank()) {
+        if(nickname == null || nickname.isBlank()) {
             nickname = DEFAULT_NICKNAME;
         }
 
