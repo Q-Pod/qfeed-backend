@@ -149,12 +149,12 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
         UserAccount account = userAccountService.findById(accountId);
 
-        Answer answer = Answer.create(
+        Answer answer = answerRepository.save(Answer.create(
                 Question.createWithQuestionId(question.questionId()),
                 account,
                 command.answerText(),
                 command.answerType()
-        );
+        ));
 
         ImmediateFeedbackResult immediateFeedback = immediateFeedbackService.evaluate(
                 question.questionId(),
