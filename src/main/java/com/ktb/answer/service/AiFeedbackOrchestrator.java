@@ -1,7 +1,7 @@
 package com.ktb.answer.service;
 
 import com.ktb.answer.dto.FeedbackStatus;
-import com.ktb.answer.dto.response.FeedbackResponse;
+import com.ktb.answer.dto.response.feedback.FeedbackResponse;
 
 /**
  * AI 피드백 오케스트레이터 인터페이스

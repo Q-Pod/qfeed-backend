@@ -7,22 +7,17 @@ import com.ktb.answer.exception.AnswerAccessDeniedException;
 import com.ktb.answer.exception.DuplicateAnswerException;
 import com.ktb.answer.exception.InvalidAnswerContentException;
 import com.ktb.answer.exception.InvalidAnswerStatusTransitionException;
-import org.springframework.stereotype.Service;
+import com.ktb.auth.exception.account.AccountNotFoundException;
+import com.ktb.question.exception.QuestionNotFoundException;
 
-@Service
 public interface AnswerDomainService {
-    /**
-     * 답변 조회
-     * @return 조회된 Answer 엔티티
-     */
-    public Answer getAnswer(Long answerId);
-
     /**
      * 답변 생성
      * @return 생성된 Answer 엔티티
+     * @throws AccountNotFoundException     제출한 유저가 존재하지 않을 때(404)
+     * @throws QuestionNotFoundException    제출한 답변의 문제가 존재하지 않을 때(404)
      */
-    public Answer createAnswer(Long accountId, Long questionId, String answerContent,
-                               String audioUrl, String videoUrl, AnswerType type);
+    public Answer createAnswer(Long accountId, Long questionId, String answerContent, AnswerType type);
 
     /**
      * 답변 소유권 검증
@@ -49,6 +44,6 @@ public interface AnswerDomainService {
      * 답변 텍스트 유효성 검증
      * @throws InvalidAnswerContentException 답변 내용이 유효하지 않은 경우
      */
-    public void validateAnswerContent(String answerText, String audioUrl)
+    public void validateAnswerContent(String answerText)
         throws InvalidAnswerContentException;
 }

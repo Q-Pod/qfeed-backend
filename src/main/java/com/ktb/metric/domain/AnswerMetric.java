@@ -1,30 +1,22 @@
 package com.ktb.metric.domain;
 
 import com.ktb.answer.domain.Answer;
-import com.ktb.common.domain.BaseSoftDeleteEntity;
 import com.ktb.common.domain.BaseTimeEntity;
 import com.ktb.metric.exception.MetricInvalidRangeException;
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 @Entity
 @Table(
         name = "ANSWER_METRIC",
         indexes = {
-                @Index(name = "uk_answer_metric", columnList = "answer_id, metric_id", unique = true),
                 @Index(name = "idx_answer_id", columnList = "answer_id"),
                 @Index(name = "idx_metric_id", columnList = "metric_id"),
                 @Index(name = "idx_created_at", columnList = "created_at")
@@ -32,21 +24,10 @@ import lombok.ToString;
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@ToString(exclude = {"answer", "metric"})
 public class AnswerMetric extends BaseTimeEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "answer_metric_id")
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "answer_id", nullable = false)
-    private Answer answer;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "metric_id", nullable = false)
-    private Metric metric;
+    @EmbeddedId
+    private AnswerMetricId id;
 
     @Column(name = "answer_metric_score", nullable = false)
     private int score;
@@ -57,8 +38,7 @@ public class AnswerMetric extends BaseTimeEntity {
     @Builder
     private AnswerMetric(Answer answer, Metric metric, int score) {
         validateScore(score);
-        this.answer = answer;
-        this.metric = metric;
+        this.id = new AnswerMetricId(answer, metric);
         this.score = score;
     }
 
@@ -82,6 +62,6 @@ public class AnswerMetric extends BaseTimeEntity {
     }
 
     public String getMetricName() {
-        return this.metric.getName();
+        return this.id.getMetric().getName();
     }
 }

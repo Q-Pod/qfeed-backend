@@ -1,5 +1,6 @@
-package com.ktb.answer.dto.response;
+package com.ktb.answer.dto.response.feedback;
 
+import com.ktb.answer.dto.response.common.MetricScore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -19,31 +20,13 @@ public record FeedbackResponse(
         String feedback,
 
         @Schema(description = "레이더 차트 데이터 (status=COMPLETED 시)")
-        List<RadarChartMetric> radarChart,
+        List<MetricScore> radarChart,
 
         @Schema(description = "재시도 권장 시간 (초, status=PROCESSING 시)", example = "5")
         Integer retryAfter
 ) {
-
-    @Schema(description = "레이더 차트 평가 지표")
-    public record RadarChartMetric(
-            @Schema(description = "평가 지표명", example = "논리 구조")
-            String metricName,
-
-            @Schema(description = "평가 지표 설명", example = "답변의 논리적 흐름과 구조")
-            String metricDescription,
-
-            @Schema(description = "획득 점수", example = "4", minimum = "1", maximum = "5")
-            int score,
-
-            @Schema(description = "최대 점수", example = "5")
-            int maxScore
-    ) {
-    }
-
     private static final String STATUS_PROCESSING = "PROCESSING";
     private static final String STATUS_COMPLETED = "COMPLETED";
-    private static final String STATUS_FAILED = "FAILED";
     private static final int DEFAULT_RETRY_AFTER_SECONDS = 5;
 
     public static FeedbackResponse processing() {
@@ -55,7 +38,7 @@ public record FeedbackResponse(
         );
     }
 
-    public static FeedbackResponse completed(String feedback, List<RadarChartMetric> radarChart) {
+    public static FeedbackResponse completed(String feedback, List<MetricScore> radarChart) {
         return new FeedbackResponse(
                 STATUS_COMPLETED,
                 feedback,

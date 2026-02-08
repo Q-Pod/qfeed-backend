@@ -36,8 +36,8 @@ class AnswerMetricTest {
 
             // Then
             assertThat(answerMetric).isNotNull();
-            assertThat(answerMetric.getAnswer()).isEqualTo(answer);
-            assertThat(answerMetric.getMetric()).isEqualTo(metric);
+            assertThat(answerMetric.getId().getAnswer()).isEqualTo(answer);
+            assertThat(answerMetric.getId().getMetric()).isEqualTo(metric);
             assertThat(answerMetric.getScore()).isEqualTo(score);
         }
 
@@ -270,7 +270,7 @@ class AnswerMetricTest {
             AnswerMetric answerMetric = AnswerMetric.create(null, metric, 3);
 
             // Then
-            assertThat(answerMetric.getAnswer()).isNull();
+            assertThat(answerMetric.getId().getAnswer()).isNull();
         }
 
         @Test
@@ -283,7 +283,7 @@ class AnswerMetricTest {
             AnswerMetric answerMetric = AnswerMetric.create(answer, null, 3);
 
             // Then
-            assertThat(answerMetric.getMetric()).isNull();
+            assertThat(answerMetric.getId().getMetric()).isNull();
         }
 
         @Test
@@ -297,10 +297,10 @@ class AnswerMetricTest {
             AnswerMetric answerMetric = AnswerMetric.create(answer, metric, 3);
 
             // Then
-            assertThat(answerMetric.getAnswer()).isNotNull();
-            assertThat(answerMetric.getMetric()).isNotNull();
-            assertThat(answerMetric.getAnswer()).isEqualTo(answer);
-            assertThat(answerMetric.getMetric()).isEqualTo(metric);
+            assertThat(answerMetric.getId().getAnswer()).isNotNull();
+            assertThat(answerMetric.getId().getMetric()).isNotNull();
+            assertThat(answerMetric.getId().getAnswer()).isEqualTo(answer);
+            assertThat(answerMetric.getId().getMetric()).isEqualTo(metric);
         }
     }
 
