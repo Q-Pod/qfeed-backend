@@ -1,13 +1,12 @@
-package com.ktb.answer.dto.response;
+package com.ktb.answer.dto.response.detail;
 
 import com.ktb.answer.dto.AiFeedbackSummary;
 import com.ktb.answer.dto.AnswerDetailResult;
+import com.ktb.answer.dto.response.common.KeywordCheck;
+import com.ktb.answer.dto.response.common.MetricScore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
-/**
- * 답변 상세 조회 응답 DTO
- */
 @Schema(description = "답변 상세 조회 응답")
 public record AnswerDetailResponse(
 
@@ -37,68 +36,6 @@ public record AnswerDetailResponse(
         @Schema(description = "AI 피드백 정보 (expand=feedback 시 포함)")
         AiFeedbackDetail aiFeedback
 ) {
-
-    @Schema(description = "질문 상세 정보")
-    public record QuestionDetail(
-            @Schema(description = "질문 ID", example = "10")
-            Long questionId,
-
-            @Schema(description = "질문 내용", example = "프로세스와 스레드의 차이를 설명해주세요")
-            String content,
-
-            @Schema(description = "질문 카테고리", example = "OS")
-            String category,
-
-            @Schema(description = "질문 타입", example = "TECHNICAL")
-            String type,
-
-            @Schema(description = "질문 핵심 키워드", example="")
-            List<String> keywords
-    ) {
-    }
-
-    @Schema(description = "즉각 피드백 상세")
-    public record ImmediateFeedbackDetail(
-            @Schema(description = "키워드 체크 결과 목록")
-            List<KeywordCheck> keywords
-    ) {
-    }
-
-    @Schema(description = "키워드 체크 결과")
-    public record KeywordCheck(
-            @Schema(description = "키워드", example = "프로세스")
-            String keyword,
-
-            @Schema(description = "포함 여부", example = "true")
-            boolean included
-    ) {
-    }
-
-    @Schema(description = "AI 피드백 상세")
-    public record AiFeedbackDetail(
-            @Schema(description = "피드백 상태", example = "COMPLETED",
-                    allowableValues = {"PROCESSING", "COMPLETED", "FAILED"})
-            String status,
-
-            @Schema(description = "AI 종합 평가 피드백",
-                    example = "전반적으로 프로세스와 스레드의 개념을 잘 이해하고 있습니다...")
-            String feedback,
-
-            @Schema(description = "평가 지표 점수 목록 (레이더 차트)")
-            List<MetricScore> metrics
-    ) {
-    }
-
-    @Schema(description = "평가 지표 점수")
-    public record MetricScore(
-            @Schema(description = "평가 지표명", example = "논리 구조")
-            String metricName,
-
-            @Schema(description = "점수 (0-100)", example = "85", minimum = "0", maximum = "100")
-            int score
-    ) {
-    }
-
     /**
      * AnswerDetailResult를 AnswerDetailResponse로 변환하는 정적 팩토리 메서드
      */
@@ -131,7 +68,7 @@ public record AnswerDetailResponse(
             List<MetricScore> metrics = summary.radarChart() == null
                 ? null
                 : summary.radarChart().entrySet().stream()
-                    .map(entry -> new MetricScore(entry.getKey(), entry.getValue()))
+                    .map(entry -> new MetricScore(entry.getKey(), null, entry.getValue(), 5))
                     .toList();
             aiFeedbackDetail = new AiFeedbackDetail(
                 summary.status() == null ? null : summary.status().name(),

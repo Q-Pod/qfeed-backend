@@ -6,7 +6,6 @@ import com.ktb.hashtag.domain.QuestionHashtag;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
-@Service
 public interface ImmediateFeedbackService {
     /**
      * 즉각 피드백 생성 (동기 처리)

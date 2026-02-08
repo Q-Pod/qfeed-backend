@@ -1,15 +1,14 @@
 package com.ktb.answer.dto;
 
-import com.ktb.answer.dto.response.AnswerSubmitResponse;
-import com.ktb.answer.dto.response.AnswerSubmitResponse.ImmediateFeedback;
-import com.ktb.answer.dto.response.AnswerSubmitResponse.KeywordCheck;
+import com.ktb.answer.dto.response.submit.ImmediateFeedback;
+import com.ktb.answer.dto.response.common.KeywordCheck;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public record ImmediateFeedbackResult(List<KeywordCheckResult> keywords) {
 
-    public static ImmediateFeedbackResult from(AnswerSubmitResponse.ImmediateFeedback feedback) {
+    public static ImmediateFeedbackResult from(ImmediateFeedback feedback) {
         if (feedback == null || feedback.keywords() == null) {
             return new ImmediateFeedbackResult(Collections.emptyList());
         }
