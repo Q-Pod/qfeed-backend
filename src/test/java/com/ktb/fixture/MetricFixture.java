@@ -8,8 +8,8 @@ import static org.mockito.Mockito.mock;
 
 public class MetricFixture {
 
-    private static final int MIN_SCORE = 0;
-    private static final int MAX_SCORE = 100;
+    private static final int MIN_SCORE = 1;
+    private static final int MAX_SCORE = 5;
     private static final int MAX_NAME_LENGTH = 100;
     private static final String DEFAULT_DESCRIPTION = "평가 지표 설명";
 
@@ -84,7 +84,7 @@ public class MetricFixture {
         return AnswerMetric.create(
                 mock(Answer.class),
                 mock(Metric.class),
-                50
+                3
         );
     }
 
@@ -125,15 +125,15 @@ public class MetricFixture {
     }
 
     public static AnswerMetric createHighScoreAnswerMetric() {
-        return createAnswerMetric(85);
+        return createAnswerMetric(5);
     }
 
     public static AnswerMetric createMediumScoreAnswerMetric() {
-        return createAnswerMetric(50);
+        return createAnswerMetric(3);
     }
 
     public static AnswerMetric createLowScoreAnswerMetric() {
-        return createAnswerMetric(15);
+        return createAnswerMetric(1);
     }
 
     public static AnswerMetric[] createMultipleAnswerMetrics(Answer answer, Metric[] metrics, int[] scores) {

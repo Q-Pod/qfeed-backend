@@ -1,6 +1,6 @@
 package com.ktb.answer.dto;
 
-import com.ktb.answer.dto.response.AnswerSubmitResponse;
+import com.ktb.answer.dto.response.submit.AnswerSubmitResponse;
 
 public record AnswerSubmitResult(
         Long answerId,

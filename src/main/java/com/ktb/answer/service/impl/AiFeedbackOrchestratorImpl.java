@@ -8,11 +8,12 @@ import com.ktb.ai.feedback.dto.response.BadCaseType;
 import com.ktb.ai.feedback.service.AiFeedbackService;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.dto.FeedbackStatus;
-import com.ktb.answer.dto.response.FeedbackResponse;
-import com.ktb.answer.exception.AnswerAccessDeniedException;
+import com.ktb.answer.dto.response.feedback.FeedbackResponse;
+import com.ktb.answer.dto.response.common.MetricScore;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AiFeedbackOrchestrator;
+import com.ktb.answer.service.AnswerDomainService;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.common.dto.ApiResponse;
 import com.ktb.metric.domain.AnswerMetric;
@@ -22,10 +23,8 @@ import com.ktb.metric.repository.MetricRepository;
 import com.ktb.question.domain.Question;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +37,7 @@ import java.util.stream.Collectors;
 public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
 
     private final AnswerRepository answerRepository;
+    private final AnswerDomainService answerDomainService;
     private final AiFeedbackService aiFeedbackService;
     private final MetricRepository metricRepository;
     private final AnswerMetricRepository answerMetricRepository;
@@ -53,7 +53,7 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
         Question question = answer.getQuestion();
         UserAccount account = answer.getAccount();
 
-        validateAnswerOwner(answer.getAccount().getId(), accountId, answerId);
+        answerDomainService.validateOwnership(answer, accountId);
 
         log.debug("Answer found - answerId: {}, questionId: {}, userId: {}",
                 answerId, question.getId(), account.getId());
@@ -157,7 +157,7 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
 
         saveAnswerMetrics(answer, data.metrics());
 
-        List<FeedbackResponse.RadarChartMetric> radarChart = convertToRadarChart(data.metrics());
+        List<MetricScore> radarChart = convertToRadarChart(data.metrics());
         String combinedFeedback = combineFeedback(data.feedback());
 
         answer.setAiFeedback(combinedFeedback);
@@ -166,13 +166,13 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
         return FeedbackResponse.completed(combinedFeedback, radarChart);
     }
 
-    private List<FeedbackResponse.RadarChartMetric> convertToRadarChart(List<AiFeedbackMetric> metrics) {
+    private List<MetricScore> convertToRadarChart(List<AiFeedbackMetric> metrics) {
         if (metrics == null) {
             return null;
         }
 
         return metrics.stream()
-                .map(metric -> new FeedbackResponse.RadarChartMetric(
+                .map(metric -> new MetricScore(
                         metric.name(),        // metricName
                         metric.comment(),     // metricDescription
                         metric.score(),       // score (1~5)
@@ -210,11 +210,5 @@ public class AiFeedbackOrchestratorImpl implements AiFeedbackOrchestrator {
         }
 
         return feedback.strengths() + "\n\n" + feedback.improvements();
-    }
-
-    private void validateAnswerOwner(Long answerUserId, Long jwtUserId, Long answerId) {
-        if (!Objects.equals(answerUserId, jwtUserId)) {
-            throw new AnswerAccessDeniedException(jwtUserId, answerUserId);
-        }
     }
 }

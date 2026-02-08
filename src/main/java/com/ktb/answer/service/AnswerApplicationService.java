@@ -6,7 +6,7 @@ import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.AnswerSubmitCommand;
 import com.ktb.answer.dto.AnswerSubmitResult;
 import com.ktb.answer.dto.FeedbackResult;
-import com.ktb.answer.dto.response.AnswerListResponse;
+import com.ktb.answer.dto.response.list.AnswerListResponse;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.file.exception.FileAlreadyDeletedException;
@@ -19,11 +19,8 @@ import com.ktb.question.domain.QuestionType;
 import com.ktb.question.exception.QuestionDisabledException;
 import com.ktb.question.exception.QuestionNotFoundException;
 import java.time.LocalDate;
-import org.springframework.data.domain.Slice;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
 public interface AnswerApplicationService {
 
     /**

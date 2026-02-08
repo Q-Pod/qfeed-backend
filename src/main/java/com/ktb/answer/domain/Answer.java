@@ -79,7 +79,7 @@ public class Answer extends BaseSoftDeleteEntity {
     @Column(name = "answer_ai_feedback", columnDefinition = "TEXT")
     private String aiFeedback;
 
-    @OneToMany(mappedBy = "answer", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @OneToMany(mappedBy = "id.answer", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private final List<AnswerMetric> answerMetrics = new ArrayList<>();
 
     @Builder

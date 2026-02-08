@@ -2,6 +2,7 @@ package com.ktb.answer.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ktb.abuse.core.AbuseCheckContext;
 import com.ktb.abuse.core.AbuseGuard;
 import com.ktb.abuse.core.AbuseGuardResult;
@@ -20,11 +21,16 @@ import com.ktb.answer.dto.FeedbackStatus;
 import com.ktb.answer.dto.ImmediateFeedbackResult;
 import com.ktb.answer.dto.KeywordCheckResult;
 import com.ktb.answer.dto.QuestionSummary;
-import com.ktb.answer.dto.response.AnswerListResponse;
+import com.ktb.answer.dto.response.list.AnswerListResponse;
+import com.ktb.answer.dto.response.list.AnswerSummary;
+import com.ktb.answer.dto.response.list.FeedbackInfo;
+import com.ktb.answer.dto.response.list.PaginationInfo;
+import com.ktb.answer.dto.response.detail.AnswerQuestionInfo;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AnswerApplicationService;
+import com.ktb.answer.service.AnswerDomainService;
 import com.ktb.answer.service.ImmediateFeedbackService;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.service.UserAccountService;
@@ -70,15 +76,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
     private final AnswerRepository answerRepository;
-    private final QuestionService questionService;
-    private final UserAccountService userAccountService;
+    private final AnswerDomainService answerDomainService;
     private final ImmediateFeedbackService immediateFeedbackService;
     private final AnswerHashtagRepository answerHashtagRepository;
     private final HashtagRepository hashtagRepository;
     private final AnswerMetricRepository answerMetricRepository;
     private final AbuseGuard abuseGuard;
 
-    private final JsonMapper jsonMapper = JsonMapper.builder().build();
+    private final JsonMapper jsonMapper = JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .build();
 
     @Override
     public AnswerListResponse getList(
@@ -136,6 +143,8 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
         log.info("Submitting answer for questionId: {}, accountId: {}", command.questionId(), accountId);
 
+        answerDomainService.validateAnswerContent(command.answerText());
+
         AbuseCheckContext abuseContext = AbuseCheckContext.of(
                 accountId,
                 command.questionId(),
@@ -144,27 +153,22 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         );
         AbuseGuardResult abuseResult = abuseGuard.check(abuseContext);
 
-        QuestionDetailResponse question = questionService.getQuestionDetail(command.questionId());
-        validateQuestionEnabled(question);
-
-        UserAccount account = userAccountService.findById(accountId);
-
-        Answer answer = answerRepository.save(Answer.create(
-                Question.createWithQuestionId(question.questionId()),
-                account,
-                command.answerText(),
-                command.answerType()
+        Answer answer = answerRepository.save(answerDomainService.createAnswer(
+            accountId,
+            command.questionId(),
+            command.answerText(),
+            command.answerType()
         ));
 
         ImmediateFeedbackResult immediateFeedback = immediateFeedbackService.evaluate(
-                question.questionId(),
+                command.questionId(),
                 answer.getContent()
         );
 
         saveAnswerHashtags(answer, immediateFeedback);
 
         if (!abuseResult.shouldProvideFeedback()) {
-            answer.transitionTo(AnswerStatus.NOT_AVAILABLE);
+            answerDomainService.transitionStatus(answer, AnswerStatus.NOT_AVAILABLE);
             log.info("Answer saved without AI feedback - accountId: {}, reason: {}",
                     accountId, abuseResult.getReason());
             return AnswerSubmitResult.noAiFeedback(answer.getId(), immediateFeedback);
@@ -226,13 +230,13 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
         log.debug("Retrieving answer detail for answerId: {}, accountId: {}", answerId, accountId);
 
-        // 1. Answer 조회 (Question eager load)
-        Answer answer = findAnswerById(answerId);
+        Answer answer = answerRepository.findByIdWithQuestion(answerId);
+        if (answer == null) {
+            throw new AnswerNotFoundException(answerId);
+        }
 
-        // 2. 소유권 검증
-        validateOwnership(answer, accountId);
+        answerDomainService.validateOwnership(answer, accountId);
 
-        // 3. 기본 Answer 정보 구성
         AnswerContentResult answerContent = new AnswerContentResult(
             answer.getContent(),
             null,  // audioUrl (MVP V2: 파일 연동 시 구현)
@@ -240,7 +244,6 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
             answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString()
         );
 
-        // 4. expand 파라미터에 따라 추가 데이터 조회
         QuestionSummary questionSummary = null;
         if (query.includeQuestion()) {
             Question question = answer.getQuestion();
@@ -262,7 +265,6 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
             aiFeedback = loadAiFeedback(answer);
         }
 
-        // 5. DTO 구성 및 반환
         return new AnswerDetailResult(
             answer.getId(),
             answer.getStatus(),
@@ -289,66 +291,55 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     }
 
     private AiFeedbackSummary loadAiFeedback(Answer answer) {
-        // FeedbackStatus enum의 from() 메서드 사용 (중복 코드 제거)
-        FeedbackStatus status = FeedbackStatus.from(answer.getStatus());
-
-        if (status != FeedbackStatus.COMPLETED) {
-            return new AiFeedbackSummary(status, null, null);
-        }
-
-        // COMPLETED 상태일 때만 메트릭 조회
-        List<AnswerMetric> metrics = answerMetricRepository.findByAnswerIdWithMetric(answer.getId());
-
-        Map<String, Integer> radarChart = metrics.stream()
-            .collect(Collectors.toMap(
-                AnswerMetric::getMetricName,
-                AnswerMetric::getScore
-            ));
-
-        return new AiFeedbackSummary(status, radarChart, answer.getAiFeedback());
+        FeedbackResult feedback = buildFeedbackResult(answer);
+        return new AiFeedbackSummary(
+                feedback.status(),
+                feedback.metrics(),
+                feedback.comment()
+        );
     }
 
     @Override
     public FeedbackResult getFeedback(Long accountId, Long answerId)
             throws AnswerNotFoundException, AnswerAccessDeniedException {
 
-        // TODO: 구현 필요
-        // 1. Answer 조회
-        // 2. 소유권 검증
-        // 3. Answer 상태에 따라 응답 분기
-        //    - AI_FEEDBACK_PROCESSING: 202 응답 (retry_after 포함)
-        //    - COMPLETED: 200 응답 (레이더 차트, AI 피드백 포함)
-        //    - FAILED: 200 응답 (실패 사유 포함)
-        // 4. ANSWER_METRIC 조회 (레이더 차트 데이터)
-        // 5. DTO로 변환하여 반환
-
         log.debug("Retrieving feedback for answerId: {}, accountId: {}", answerId, accountId);
 
-        Answer answer = findAnswerById(answerId);
-        validateOwnership(answer, accountId);
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(() -> new AnswerNotFoundException(answerId));
+        answerDomainService.validateOwnership(answer, accountId);
 
-        // TODO: 상태별 응답 처리 및 DTO 변환
-        return null;
+        return buildFeedbackResult(answer);
     }
 
-    private void validateQuestionEnabled(QuestionDetailResponse question) {
-        if (!question.useYn()) {
-            throw new QuestionDisabledException(question.questionId());
-        }
-    }
+    private FeedbackResult buildFeedbackResult(Answer answer) {
+        FeedbackStatus status = FeedbackStatus.from(answer.getStatus());
 
-    private Answer findAnswerById(Long answerId) {
-        Answer answer = answerRepository.findByIdWithQuestion(answerId);
-        if (answer == null) {
-            throw new AnswerNotFoundException(answerId);
+        if (status == FeedbackStatus.PROCESSING) {
+            return new FeedbackResult(status, 30, null, null, null);
         }
-        return answer;
-    }
 
-    private void validateOwnership(Answer answer, Long accountId) {
-        if (!answer.isOwnedBy(accountId)) {
-            throw new AnswerAccessDeniedException(answer.getId(), accountId);
+        if (status != FeedbackStatus.COMPLETED) {
+            return new FeedbackResult(status, null, null, null, null);
         }
+
+        List<AnswerMetric> metrics = answerMetricRepository.findByAnswerIdWithMetric(answer.getId());
+
+        Map<String, Integer> metricsMap = metrics.stream()
+                .collect(Collectors.toMap(
+                        AnswerMetric::getMetricName,
+                        AnswerMetric::getScore
+                ));
+
+        return new FeedbackResult(
+                status,
+                null,
+                metricsMap,
+                answer.getAiFeedback(),
+                answer.getUpdatedAt() != null
+                        ? answer.getUpdatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                        : null
+        );
     }
 
     private LocalDateRange resolveDateRange(LocalDate dateFrom, LocalDate dateTo) {
@@ -408,12 +399,12 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
     }
 
     private AnswerListResponse toAnswerListResponse(Slice<Answer> answers, int limit) {
-        List<AnswerListResponse.AnswerSummary> records = answers.getContent().stream()
-                .map(answer -> new AnswerListResponse.AnswerSummary(
+        List<AnswerSummary> records = answers.getContent().stream()
+                .map(answer -> new AnswerSummary(
                         answer.getId(),
                         answer.getType().name(),
                         answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString(),
-                        new AnswerListResponse.QuestionInfo(
+                        new AnswerQuestionInfo(
                                 answer.getQuestion().getId(),
                                 answer.getQuestion().getContent(),
                                 answer.getQuestion().getCategory().name()
@@ -424,11 +415,11 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
         String nextCursor = null;
         if (answers.hasNext() && !answers.getContent().isEmpty()) {
-            Answer last = answers.getContent().get(answers.getContent().size() - 1);
+            Answer last = answers.getContent().getLast();
             nextCursor = encodeCursor(new AnswerListCursor(last.getCreatedAt(), last.getId()));
         }
 
-        AnswerListResponse.PaginationInfo pagination = new AnswerListResponse.PaginationInfo(
+        PaginationInfo pagination = new PaginationInfo(
                 limit,
                 answers.hasNext(),
                 nextCursor
@@ -437,16 +428,9 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         return new AnswerListResponse(records, pagination);
     }
 
-    private AnswerListResponse.FeedbackInfo toFeedbackInfo(Answer answer) {
+    private FeedbackInfo toFeedbackInfo(Answer answer) {
         AnswerStatus status = answer.getStatus();
-        String feedbackStatus = switch (status) {
-            case AI_FEEDBACK_PROCESSING -> "PROCESSING";
-            case COMPLETED -> "COMPLETED";
-            case FAILED -> "FAILED";
-            case FAILED_RETRYABLE -> "FAILED_RETRYABLE";
-            default -> "NOT_AVAILABLE";
-        };
         boolean available = status == AnswerStatus.COMPLETED;
-        return new AnswerListResponse.FeedbackInfo(available, feedbackStatus);
+        return new FeedbackInfo(available, status.name());
     }
 }
