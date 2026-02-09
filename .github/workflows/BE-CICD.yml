@@ -2,11 +2,11 @@ name: Backend CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main", "dev"]
   pull_request:
     branches:
       - main
+      - dev
 
 env:
   JAVA_VERSION: '25'
@@ -81,7 +81,7 @@ jobs:
     name: Deploy to EC2
     needs: ci
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
 
     steps:
       - name: Checkout code
@@ -100,31 +100,42 @@ jobs:
           echo "jar_path=$JAR_FILE" >> $GITHUB_OUTPUT
           echo "Found JAR: $JAR_FILE"
 
+      - name: Determine Environment and Server
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "ec2_host=${{ secrets.QFEED_EC2_HOST }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "ec2_host=${{ secrets.QFEED_EC2_DEV_HOST }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.QFEED_EC2_SSH_KEY }}" > ~/.ssh/qfeed-keypair-2.pem
           chmod 600 ~/.ssh/qfeed-keypair-2.pem
-          ssh-keyscan -H ${{ secrets.QFEED_EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ steps.env.outputs.ec2_host }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to server
+      - name: Deploy to ${{ steps.env.outputs.environment }} server
         run: |
-          SERVER="${{ secrets.QFEED_EC2_USER }}@${{ secrets.QFEED_EC2_HOST }}"
+          SERVER="${{ secrets.QFEED_EC2_USER }}@${{ steps.env.outputs.ec2_host }}"
           SSH_KEY="~/.ssh/qfeed-keypair-2.pem"
           JAR_FILE="${{ steps.find-jar.outputs.jar_path }}"
 
           # Upload JAR to server
-          echo "Uploading JAR to server..."
+          echo "Uploading JAR to ${{ steps.env.outputs.environment }} server..."
           scp -i $SSH_KEY "$JAR_FILE" $SERVER:/tmp/backend-1.0-SNAPSHOT.jar
 
           # Execute deploy script on server
-          echo "Executing deploy script on server..."
+          echo "Executing deploy script on ${{ steps.env.outputs.environment }} server..."
           ssh -i $SSH_KEY $SERVER "sudo /srv/qfeed/deploy-be.sh /tmp/backend-1.0-SNAPSHOT.jar"
 
           # Cleanup
           ssh -i $SSH_KEY $SERVER "rm -f /tmp/backend-1.0-SNAPSHOT.jar"
 
-          echo "Deployment completed successfully!"
+          echo "Deployment to ${{ steps.env.outputs.environment }} completed successfully!"
 
   # CI 실패 시 어떤 과정에서 실패했는지 Discord 알림
   discord-notify-failure:
