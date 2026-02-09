@@ -37,6 +37,7 @@ dependencies {
 
     // ✅ Actuator (Health Check)
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     // ✅ OAuth Client
     implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'

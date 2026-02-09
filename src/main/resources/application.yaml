@@ -13,6 +13,8 @@ spring:
       - "/"
       - "/error"
       - "/actuator/health"
+      - "/actuator/prometheus"
+      - "/actuator/info"
       - "/api/auth/oauth/tokens"
     anonymous-only-endpoints:
       - "/api/auth/oauth/authorization-url"
@@ -87,10 +89,25 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,prometheus
+        include: health, metrics, info, prometheus
   endpoint:
     health:
+      probes:
+        enabled: true
       show-details: never
+  metrics:
+    tags:
+      application: QFeed
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms, 200ms, 500ms, 1s, 2s, 3s
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: 10s
 
 springdoc:
   api-docs:
