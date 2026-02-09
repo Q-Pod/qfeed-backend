@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -28,6 +29,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsProperties corsProperties;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final SecurityProperties securityProperties;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -39,23 +41,24 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+                .headers(headers -> headers.frameOptions(FrameOptionsConfig::sameOrigin))
 
-                .authorizeHttpRequests(auth -> auth
-                    // Public 엔드포인트
-                    .requestMatchers(
-                        "/",
-                        "/error",
-                        "/actuator/health",
-                        "/api/auth/**"
-                    ).permitAll()
+                .authorizeHttpRequests(auth -> {
+                    if (securityProperties.getIsAuthenticated()) {
+                        auth.requestMatchers(securityProperties.getPermitAllPatterns())
+                            .permitAll();
 
-                    // Actuator Admin 전용
-                    .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        auth.requestMatchers(securityProperties.getAnonymousOnlyPatterns())
+                            .anonymous();
 
-                    // 나머지는 인증 필요
-                    .anyRequest().authenticated()
-                )
+                        auth.anyRequest()
+                            .authenticated();
+                    } else {
+                        auth.anyRequest()
+                            .permitAll();
+                    }
+                })
+
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .authenticationEntryPoint(authenticationEntryPoint)
                 )

@@ -8,6 +8,16 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
 
   security:
+    is-authenticated: true
+    permit-all-endpoints:
+      - "/"
+      - "/error"
+      - "/actuator/health"
+      - "/api/auth/oauth/tokens"
+    anonymous-only-endpoints:
+      - "/api/auth/oauth/authorization-url"
+      - "/api/auth/oauth/{provider}/callback"
+      - "/api/auth/oauth/exchange"
     oauth2:
       client:
         registration:
