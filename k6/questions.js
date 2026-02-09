@@ -31,8 +31,8 @@ const questionsCreated = new Counter('questions_created');
 const TEST_QUESTION_ID = __ENV.TEST_QUESTION_ID || 1;
 
 // 카테고리 및 타입 enum 값
-const CATEGORIES = ['COMMON', 'BACKEND', 'FRONTEND', 'INFRA', 'AI'];
-const TYPES = ['TECHNICAL', 'BEHAVIORAL', 'SITUATIONAL'];
+const CATEGORIES = ['OS', 'NETWORK', 'DB', 'COMPUTER_ARCHITECTURE', 'DATA_STRUCTURE_ALGORITHM'];
+const TYPES = ['CS', 'SYSTEM_DESIGN', 'PORTFOLIO'];
 
 export default function () {
     group('Question API', function () {

@@ -34,9 +34,9 @@ export default function () {
         // POST /api/files/presigned-url
         group('Generate Presigned URL', function () {
             const payload = JSON.stringify({
-                fileName: `test-file-${randomString(8)}.mp4`,
-                fileSize: FILE_SIZES[randomInt(0, FILE_SIZES.length - 1)],
-                contentType: FILE_TYPES[randomInt(0, FILE_TYPES.length - 1)],
+                file_name: `test-file-${randomString(8)}.mp4`,
+                file_size: FILE_SIZES[randomInt(0, FILE_SIZES.length - 1)],
+                content_type: FILE_TYPES[randomInt(0, FILE_TYPES.length - 1)],
             });
 
             const res = http.post(
@@ -165,19 +165,19 @@ export function flowTest() {
  */
 export function fileTypeTest() {
     const testCases = [
-        { fileName: 'test.mp4', contentType: 'video/mp4', fileSize: 1024 * 1024 },
-        { fileName: 'test.webm', contentType: 'video/webm', fileSize: 2 * 1024 * 1024 },
-        { fileName: 'test.mp3', contentType: 'audio/mpeg', fileSize: 512 * 1024 },
-        { fileName: 'test.wav', contentType: 'audio/wav', fileSize: 1024 * 1024 },
+        { file_name: 'test.mp4', content_type: 'video/mp4', file_size: 1024 * 1024 },
+        { file_name: 'test.webm', content_type: 'video/webm', file_size: 2 * 1024 * 1024 },
+        { file_name: 'test.mp3', content_type: 'audio/mpeg', file_size: 512 * 1024 },
+        { file_name: 'test.wav', content_type: 'audio/wav', file_size: 1024 * 1024 },
     ];
 
     group('File Type Tests', function () {
         testCases.forEach((tc, index) => {
-            group(`Test ${index + 1}: ${tc.contentType}`, function () {
+            group(`Test ${index + 1}: ${tc.content_type}`, function () {
                 const payload = JSON.stringify({
-                    fileName: tc.fileName,
-                    fileSize: tc.fileSize,
-                    contentType: tc.contentType,
+                    file_name: tc.file_name,
+                    file_size: tc.file_size,
+                    content_type: tc.content_type,
                 });
 
                 const res = http.post(

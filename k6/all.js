@@ -149,7 +149,7 @@ export function authOperations() {
 
 function questionsList() {
     group('Questions List', function () {
-        const categories = ['COMMON', 'BACKEND', 'FRONTEND', 'INFRA', 'AI'];
+        const categories = ['OS', 'NETWORK', 'DB', 'COMPUTER_ARCHITECTURE', 'DATA_STRUCTURE_ALGORITHM'];
         const category = categories[randomInt(0, categories.length - 1)];
 
         const res = http.get(
@@ -384,8 +384,8 @@ function userWeeklyStats() {
 
 function createQuestion() {
     group('Create Question', function () {
-        const categories = ['COMMON', 'BACKEND', 'FRONTEND', 'INFRA', 'AI'];
-        const types = ['TECHNICAL', 'BEHAVIORAL', 'SITUATIONAL'];
+        const categories = ['OS', 'NETWORK', 'DB', 'COMPUTER_ARCHITECTURE', 'DATA_STRUCTURE_ALGORITHM'];
+        const types = ['CS', 'SYSTEM_DESIGN', 'PORTFOLIO'];
 
         const payload = JSON.stringify({
             content: `K6 테스트 질문 ${randomString(8)}`,
