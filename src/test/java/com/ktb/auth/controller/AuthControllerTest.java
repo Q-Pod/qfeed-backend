@@ -5,6 +5,7 @@ import com.ktb.auth.config.OAuthProperties;
 import com.ktb.auth.dto.AuthorizationUrlResult;
 import com.ktb.auth.security.adapter.SecurityUserAccount;
 import com.ktb.auth.security.config.SecurityConfig;
+import com.ktb.auth.security.config.SecurityProperties;
 import com.ktb.auth.security.filter.JwtAuthenticationFilter;
 import com.ktb.auth.security.handler.CustomAuthenticationEntryPoint;
 import org.springframework.context.annotation.Import;
@@ -38,7 +39,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
-@Import({OAuthProperties.class, CorsProperties.class, SecurityConfig.class})
+@Import({OAuthProperties.class, CorsProperties.class, SecurityConfig.class, SecurityProperties.class})
 @DisplayName("OAuthController 단위 테스트")
 @TestPropertySource(properties = {
     "oauth.frontend-redirect-uri=http://localhost:3000/oauth/callback",
