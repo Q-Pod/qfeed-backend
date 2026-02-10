@@ -15,7 +15,7 @@ spring:
       - "/actuator/health"
       - "/actuator/prometheus"
       - "/actuator/info"
-      - "/api/auth/oauth/tokens"
+      - "/api/auth/tokens"
     anonymous-only-endpoints:
       - "/api/auth/oauth/authorization-url"
       - "/api/auth/oauth/{provider}/callback"
