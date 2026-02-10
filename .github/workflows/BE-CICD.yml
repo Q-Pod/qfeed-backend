@@ -48,8 +48,17 @@ jobs:
       - name: Run tests
         run: ./gradlew test
 
+      - name: Upload test reports
+        if: failure() || always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/test/
+            retention-days: 7
+
       - name: Build JAR
-        run: ./gradlew bootJar
+        run: ./gradlew bootJar -x test
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
