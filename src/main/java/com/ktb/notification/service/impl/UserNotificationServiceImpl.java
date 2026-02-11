@@ -1,18 +1,17 @@
 package com.ktb.notification.service.impl;
 
 import com.ktb.auth.domain.UserAccount;
-import com.ktb.auth.repository.UserAccountRepository;
-import com.ktb.common.domain.ErrorCode;
-import com.ktb.common.exception.BusinessException;
+import com.ktb.auth.service.UserAccountService;
 import com.ktb.notification.domain.Notice;
 import com.ktb.notification.domain.UserNotification;
 import com.ktb.notification.domain.enums.NotificationTypeCd;
 import com.ktb.notification.dto.response.UnreadCountResponse;
 import com.ktb.notification.dto.response.UserNotificationResponse;
+import com.ktb.notification.exception.NoticeNotFoundException;
 import com.ktb.notification.exception.UserNotificationNotFoundException;
-import com.ktb.notification.repository.NoticeRepository;
-import com.ktb.notification.repository.UserNotificationRepository;
+import com.ktb.notification.service.NoticeStore;
 import com.ktb.notification.service.UserNotificationService;
+import com.ktb.notification.service.UserNotificationStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,26 +23,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserNotificationServiceImpl implements UserNotificationService {
 
-    private final UserNotificationRepository notificationRepository;
-    private final UserAccountRepository userAccountRepository;
-    private final NoticeRepository noticeRepository;
+    private final UserNotificationStore notificationStore;
+    private final UserAccountService userAccountService;
+    private final NoticeStore noticeStore;
 
     @Override
     public Page<UserNotificationResponse> getNotifications(Long accountId, Pageable pageable) {
-        return notificationRepository.findByAccountId(accountId, pageable)
+        return notificationStore.findByAccountId(accountId, pageable)
                 .map(UserNotificationResponse::from);
     }
 
     @Override
     public UnreadCountResponse getUnreadCount(Long accountId) {
-        long count = notificationRepository.countUnreadByAccountId(accountId);
+        long count = notificationStore.countUnreadByAccountId(accountId);
         return UnreadCountResponse.of(count);
     }
 
     @Override
     @Transactional
     public UserNotificationResponse markAsRead(Long accountId, Long notificationId) {
-        UserNotification notification = notificationRepository.findByIdAndAccountId(notificationId, accountId)
+        UserNotification notification = notificationStore.findByIdAndAccountId(notificationId, accountId)
                 .orElseThrow(() -> new UserNotificationNotFoundException(notificationId));
 
         notification.markAsRead();
@@ -54,7 +53,7 @@ public class UserNotificationServiceImpl implements UserNotificationService {
     @Override
     @Transactional
     public int markAllAsRead(Long accountId) {
-        return notificationRepository.markAllAsReadByAccountId(accountId);
+        return notificationStore.markAllAsReadByAccountId(accountId);
     }
 
     @Override
@@ -67,8 +66,7 @@ public class UserNotificationServiceImpl implements UserNotificationService {
             String deeplink,
             Long referenceId
     ) {
-        UserAccount account = userAccountRepository.findById(accountId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND) {});
+        UserAccount account = userAccountService.findById(accountId);
 
         UserNotification notification = UserNotification.create(
                 account,
@@ -79,25 +77,24 @@ public class UserNotificationServiceImpl implements UserNotificationService {
                 referenceId
         );
 
-        notificationRepository.save(notification);
+        notificationStore.save(notification);
     }
 
     @Override
     @Transactional
     public void createNoticeNotification(Long accountId, Long noticeId) {
-        if (notificationRepository.existsByAccountIdAndNotificationTypeAndReferenceId(
+        if (notificationStore.existsByAccountIdAndTypeAndReferenceId(
                 accountId, NotificationTypeCd.NOTICE, noticeId)) {
             return;
         }
 
-        UserAccount account = userAccountRepository.findById(accountId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND) {});
+        UserAccount account = userAccountService.findById(accountId);
 
-        Notice notice = noticeRepository.findActiveById(noticeId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND) {});
+        Notice notice = noticeStore.findActiveById(noticeId)
+                .orElseThrow(() -> new NoticeNotFoundException(noticeId));
 
         UserNotification notification = UserNotification.createFromNotice(account, notice);
 
-        notificationRepository.save(notification);
+        notificationStore.save(notification);
     }
 }
