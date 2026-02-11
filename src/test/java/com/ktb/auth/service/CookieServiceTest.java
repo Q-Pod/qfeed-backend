@@ -1,5 +1,6 @@
 package com.ktb.auth.service;
 
+import com.ktb.auth.dto.CookieSpec;
 import com.ktb.auth.jwt.JwtProperties;
 import com.ktb.auth.service.impl.CookieServiceImpl;
 import jakarta.servlet.http.Cookie;
@@ -46,13 +47,33 @@ class CookieServiceTest {
         }
 
         @Test
-        @DisplayName("Refresh Token 쿠키 생성 시 Secure=true, SameSite=Strict 설정")
+        @DisplayName("Refresh Token 쿠키 스펙 생성 시 Secure=true, SameSite=Strict 설정")
         void createRefreshTokenCookie_ShouldSetSecureAndStrictSameSite() {
             // given
             when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_TOKEN_EXPIRATION);
 
             // when
-            Cookie cookie = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
+            CookieSpec spec = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
+
+            // then
+            assertThat(spec.name()).isEqualTo(COOKIE_NAME);
+            assertThat(spec.value()).isEqualTo(SAMPLE_REFRESH_TOKEN);
+            assertThat(spec.httpOnly()).isTrue();
+            assertThat(spec.secure()).isTrue();
+            assertThat(spec.path()).isEqualTo("/api/auth");
+            assertThat(spec.maxAgeSeconds()).isEqualTo((int) (REFRESH_TOKEN_EXPIRATION / 1000));
+            assertThat(spec.sameSite()).isEqualTo("Strict");
+        }
+
+        @Test
+        @DisplayName("CookieSpec에서 Servlet Cookie로 변환이 성공해야 한다")
+        void toServletCookie_ShouldConvertCorrectly() {
+            // given
+            when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_TOKEN_EXPIRATION);
+            CookieSpec spec = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
+
+            // when
+            Cookie cookie = spec.toServletCookie();
 
             // then
             assertThat(cookie.getName()).isEqualTo(COOKIE_NAME);
@@ -65,19 +86,19 @@ class CookieServiceTest {
         }
 
         @Test
-        @DisplayName("만료된 Refresh Token 쿠키 생성 시 Secure=true, SameSite=Strict 설정")
+        @DisplayName("만료된 Refresh Token 쿠키 스펙 생성 시 Secure=true, SameSite=Strict 설정")
         void createExpiredRefreshTokenCookie_ShouldSetSecureAndStrictSameSite() {
             // when
-            Cookie cookie = cookieService.createExpiredRefreshTokenCookie();
+            CookieSpec spec = cookieService.createExpiredRefreshTokenCookie();
 
             // then
-            assertThat(cookie.getName()).isEqualTo(COOKIE_NAME);
-            assertThat(cookie.getValue()).isEmpty();
-            assertThat(cookie.isHttpOnly()).isTrue();
-            assertThat(cookie.getSecure()).isTrue();
-            assertThat(cookie.getPath()).isEqualTo("/api/auth");
-            assertThat(cookie.getMaxAge()).isZero();
-            assertThat(cookie.getAttribute("SameSite")).isEqualTo("Strict");
+            assertThat(spec.name()).isEqualTo(COOKIE_NAME);
+            assertThat(spec.value()).isEmpty();
+            assertThat(spec.httpOnly()).isTrue();
+            assertThat(spec.secure()).isTrue();
+            assertThat(spec.path()).isEqualTo("/api/auth");
+            assertThat(spec.maxAgeSeconds()).isZero();
+            assertThat(spec.sameSite()).isEqualTo("Strict");
         }
     }
 
@@ -92,38 +113,38 @@ class CookieServiceTest {
         }
 
         @Test
-        @DisplayName("Refresh Token 쿠키 생성 시 Secure=false, SameSite=Lax 설정")
+        @DisplayName("Refresh Token 쿠키 스펙 생성 시 Secure=false, SameSite=Lax 설정")
         void createRefreshTokenCookie_ShouldSetInsecureAndLaxSameSite() {
             // given
             when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_TOKEN_EXPIRATION);
 
             // when
-            Cookie cookie = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
+            CookieSpec spec = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
 
             // then
-            assertThat(cookie.getName()).isEqualTo(COOKIE_NAME);
-            assertThat(cookie.getValue()).isEqualTo(SAMPLE_REFRESH_TOKEN);
-            assertThat(cookie.isHttpOnly()).isTrue();
-            assertThat(cookie.getSecure()).isFalse();
-            assertThat(cookie.getPath()).isEqualTo("/api/auth");
-            assertThat(cookie.getMaxAge()).isEqualTo((int) (REFRESH_TOKEN_EXPIRATION / 1000));
-            assertThat(cookie.getAttribute("SameSite")).isEqualTo("Lax");
+            assertThat(spec.name()).isEqualTo(COOKIE_NAME);
+            assertThat(spec.value()).isEqualTo(SAMPLE_REFRESH_TOKEN);
+            assertThat(spec.httpOnly()).isTrue();
+            assertThat(spec.secure()).isFalse();
+            assertThat(spec.path()).isEqualTo("/api/auth");
+            assertThat(spec.maxAgeSeconds()).isEqualTo((int) (REFRESH_TOKEN_EXPIRATION / 1000));
+            assertThat(spec.sameSite()).isEqualTo("Lax");
         }
 
         @Test
-        @DisplayName("만료된 Refresh Token 쿠키 생성 시 Secure=false, SameSite=Lax 설정")
+        @DisplayName("만료된 Refresh Token 쿠키 스펙 생성 시 Secure=false, SameSite=Lax 설정")
         void createExpiredRefreshTokenCookie_ShouldSetInsecureAndLaxSameSite() {
             // when
-            Cookie cookie = cookieService.createExpiredRefreshTokenCookie();
+            CookieSpec spec = cookieService.createExpiredRefreshTokenCookie();
 
             // then
-            assertThat(cookie.getName()).isEqualTo(COOKIE_NAME);
-            assertThat(cookie.getValue()).isEmpty();
-            assertThat(cookie.isHttpOnly()).isTrue();
-            assertThat(cookie.getSecure()).isFalse();
-            assertThat(cookie.getPath()).isEqualTo("/api/auth");
-            assertThat(cookie.getMaxAge()).isZero();
-            assertThat(cookie.getAttribute("SameSite")).isEqualTo("Lax");
+            assertThat(spec.name()).isEqualTo(COOKIE_NAME);
+            assertThat(spec.value()).isEmpty();
+            assertThat(spec.httpOnly()).isTrue();
+            assertThat(spec.secure()).isFalse();
+            assertThat(spec.path()).isEqualTo("/api/auth");
+            assertThat(spec.maxAgeSeconds()).isZero();
+            assertThat(spec.sameSite()).isEqualTo("Lax");
         }
     }
 
@@ -135,10 +156,10 @@ class CookieServiceTest {
         when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_TOKEN_EXPIRATION);
 
         // when
-        Cookie cookie = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
+        CookieSpec spec = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
 
         // then
-        assertThat(cookie.getMaxAge()).isEqualTo(1209600);
+        assertThat(spec.maxAgeSeconds()).isEqualTo(1209600);
     }
 
     @Test
@@ -149,13 +170,13 @@ class CookieServiceTest {
         when(jwtProperties.getRefreshTokenExpiration()).thenReturn(REFRESH_TOKEN_EXPIRATION);
 
         // when
-        Cookie expiredCookie = cookieService.createExpiredRefreshTokenCookie();
-        Cookie normalCookie = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
+        CookieSpec expiredSpec = cookieService.createExpiredRefreshTokenCookie();
+        CookieSpec normalSpec = cookieService.createRefreshTokenCookie(SAMPLE_REFRESH_TOKEN);
 
         // then
-        assertThat(expiredCookie.isHttpOnly()).isEqualTo(normalCookie.isHttpOnly());
-        assertThat(expiredCookie.getSecure()).isEqualTo(normalCookie.getSecure());
-        assertThat(expiredCookie.getPath()).isEqualTo(normalCookie.getPath());
-        assertThat(expiredCookie.getAttribute("SameSite")).isEqualTo(normalCookie.getAttribute("SameSite"));
+        assertThat(expiredSpec.httpOnly()).isEqualTo(normalSpec.httpOnly());
+        assertThat(expiredSpec.secure()).isEqualTo(normalSpec.secure());
+        assertThat(expiredSpec.path()).isEqualTo(normalSpec.path());
+        assertThat(expiredSpec.sameSite()).isEqualTo(normalSpec.sameSite());
     }
 }

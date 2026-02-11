@@ -4,28 +4,24 @@ import com.ktb.auth.client.KakaoOAuth2Client;
 import com.ktb.auth.config.KakaoOAuthProviderProperties;
 import com.ktb.auth.config.KakaoOAuthRegistrationProperties;
 import com.ktb.auth.domain.OAuthProvider;
-import com.ktb.auth.dto.jwt.RefreshTokenClaims;
-import com.ktb.auth.dto.jwt.RefreshTokenEntity;
-import com.ktb.auth.exception.oauth.OAuthProviderException;
-import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.RevokeReason;
-import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.dto.AuthorizationUrlResult;
 import com.ktb.auth.dto.KakaoAccount;
 import com.ktb.auth.dto.KakaoProfile;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthExchangePayload;
-import com.ktb.auth.dto.response.KakaoUserInfoResponse;
 import com.ktb.auth.dto.OAuthLoginResult;
+import com.ktb.auth.dto.TokenFamilyInfo;
+import com.ktb.auth.dto.jwt.RefreshTokenClaims;
+import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.dto.jwt.TokenRefreshResult;
+import com.ktb.auth.dto.response.KakaoUserInfoResponse;
 import com.ktb.auth.exception.family.FamilyRevokedException;
 import com.ktb.auth.exception.oauth.InvalidExchangeCodeException;
 import com.ktb.auth.exception.oauth.InvalidStateException;
+import com.ktb.auth.exception.oauth.OAuthProviderException;
 import com.ktb.auth.exception.token.TokenReuseDetectedException;
-import com.ktb.auth.jwt.JwtProvider;
-import com.ktb.auth.repository.RefreshTokenRepository;
-import com.ktb.auth.repository.TokenFamilyRepository;
 import com.ktb.auth.service.impl.OAuthApplicationServiceImpl;
 import com.ktb.common.domain.ErrorCode;
 import com.ktb.common.exception.BusinessException;
@@ -36,7 +32,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -65,13 +60,7 @@ class OAuthApplicationServiceTest {
     private RTRService rtrService;
 
     @Mock
-    private JwtProvider jwtProvider;
-
-    @Mock
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Mock
-    private TokenFamilyRepository tokenFamilyRepository;
+    private TokenFamilyStore tokenFamilyStore;
 
     @Mock
     private KakaoOAuthProviderProperties kakaoProviderProperties;
@@ -226,15 +215,12 @@ class OAuthApplicationServiceTest {
     void exchange_WithValidCode_ShouldSucceed() {
         // given
         OAuthExchangePayload payload = new OAuthExchangePayload(USER_ID, USER_NICKNAME, true, DEVICE_INFO, CLIENT_IP);
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(mockFamily.getUuid()).thenReturn(FAMILY_UUID);
+        TokenFamilyInfo familyInfo = new TokenFamilyInfo(FAMILY_ID, FAMILY_UUID, true);
 
         when(oauthDomainService.consumeExchangeCode(EXCHANGE_CODE)).thenReturn(payload);
-        when(rtrService.createFamily(USER_ID, DEVICE_INFO, CLIENT_IP)).thenReturn(mockFamily);
+        when(rtrService.createFamily(USER_ID, DEVICE_INFO, CLIENT_IP)).thenReturn(familyInfo);
         when(tokenService.issueAccessToken(USER_ID, List.of("ROLE_USER"), USER_NICKNAME)).thenReturn(ACCESS_TOKEN);
-        when(jwtProvider.createRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn(REFRESH_TOKEN);
-        when(jwtProvider.generateTokenHash(REFRESH_TOKEN)).thenReturn(TOKEN_HASH);
-        when(jwtProvider.refreshTokenDuration()).thenReturn(Duration.ofDays(14));
+        when(tokenService.issueRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn(REFRESH_TOKEN);
 
         // when
         OAuthLoginResult result = oauthApplicationService.exchange(EXCHANGE_CODE);
@@ -244,7 +230,7 @@ class OAuthApplicationServiceTest {
         assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
         assertThat(result.user().nickname()).isEqualTo("신규유저");
         assertThat(result.user().isNewUser()).isTrue();
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+        verify(tokenService).storeRefreshToken(FAMILY_ID, REFRESH_TOKEN);
     }
 
     @Test
@@ -266,21 +252,18 @@ class OAuthApplicationServiceTest {
     void refreshTokens_ShouldSucceed() {
         // given
         RefreshTokenClaims claims = new RefreshTokenClaims(USER_ID, USER_NICKNAME, FAMILY_UUID);
-        RefreshTokenEntity tokenEntity = new RefreshTokenEntity(100L, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
-        TokenFamily mockFamily = mock(TokenFamily.class);
+        RefreshTokenInfo tokenInfo = new RefreshTokenInfo(100L, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
+        TokenFamilyInfo familyInfo = new TokenFamilyInfo(FAMILY_ID, FAMILY_UUID, true);
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
-        when(jwtProvider.generateTokenHash(REFRESH_TOKEN)).thenReturn(TOKEN_HASH);
-        when(tokenService.findByTokenHash(TOKEN_HASH)).thenReturn(tokenEntity);
-        doNothing().when(rtrService).detectReuse(tokenEntity);
+        when(tokenService.getStoredRefreshToken(REFRESH_TOKEN)).thenReturn(tokenInfo);
+        doNothing().when(rtrService).detectReuse(tokenInfo);
         doNothing().when(rtrService).validateFamilyActive(FAMILY_ID);
         doNothing().when(rtrService).markAsUsed(100L);
+        when(tokenFamilyStore.findByUuid(FAMILY_UUID)).thenReturn(Optional.of(familyInfo));
         when(tokenService.issueAccessToken(USER_ID, List.of("ROLE_USER"), USER_NICKNAME)).thenReturn("new.access.token");
-        when(jwtProvider.createRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn("new.refresh.token");
-        when(tokenFamilyRepository.findByUuid(FAMILY_UUID)).thenReturn(Optional.of(mockFamily));
-        when(jwtProvider.generateTokenHash("new.refresh.token")).thenReturn("new-token-hash");
-        when(jwtProvider.refreshTokenDuration()).thenReturn(Duration.ofDays(14));
-        when(jwtProvider.accessTokenExpiresSeconds()).thenReturn(600);
+        when(tokenService.issueRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn("new.refresh.token");
+        when(tokenService.getAccessTokenExpiresSeconds()).thenReturn(600L);
 
         // when
         TokenRefreshResult result = oauthApplicationService.refreshTokens(REFRESH_TOKEN);
@@ -291,8 +274,8 @@ class OAuthApplicationServiceTest {
         assertThat(result.expiresIn()).isEqualTo(600);
 
         verify(rtrService).markAsUsed(100L);
-        verify(mockFamily).updateLastUsed();
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+        verify(tokenFamilyStore).updateLastUsed(FAMILY_UUID);
+        verify(tokenService).storeRefreshToken(FAMILY_ID, "new.refresh.token");
     }
 
     @Test
@@ -300,11 +283,10 @@ class OAuthApplicationServiceTest {
     void refreshTokens_WithReusedToken_ShouldRevokeFamily() {
         // given
         RefreshTokenClaims claims = new RefreshTokenClaims(USER_ID, FAMILY_UUID, USER_NICKNAME);
-        RefreshTokenEntity usedToken = new RefreshTokenEntity(100L, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
+        RefreshTokenInfo usedToken = new RefreshTokenInfo(100L, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
-        when(jwtProvider.generateTokenHash(REFRESH_TOKEN)).thenReturn(TOKEN_HASH);
-        when(tokenService.findByTokenHash(TOKEN_HASH)).thenReturn(usedToken);
+        when(tokenService.getStoredRefreshToken(REFRESH_TOKEN)).thenReturn(usedToken);
         doThrow(new TokenReuseDetectedException(FAMILY_ID))
                 .when(rtrService).detectReuse(usedToken);
 
@@ -322,16 +304,16 @@ class OAuthApplicationServiceTest {
     void logout_ShouldSucceed() {
         // given
         RefreshTokenClaims claims = new RefreshTokenClaims(USER_ID, USER_NICKNAME, FAMILY_UUID);
-        TokenFamily mockFamily = mock(TokenFamily.class);
+        RefreshTokenInfo tokenInfo = new RefreshTokenInfo(100L, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
-        when(tokenFamilyRepository.findByUuid(FAMILY_UUID)).thenReturn(Optional.of(mockFamily));
+        when(tokenService.getStoredRefreshToken(REFRESH_TOKEN)).thenReturn(tokenInfo);
 
         // when
         oauthApplicationService.logout(USER_ID, REFRESH_TOKEN);
 
         // then
-        verify(mockFamily).revoke(RevokeReason.USER_LOGOUT);
+        verify(rtrService).revokeFamily(FAMILY_ID, RevokeReason.USER_LOGOUT);
     }
 
     @Test
@@ -348,21 +330,21 @@ class OAuthApplicationServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("세션 소유권이 일치하지 않습니다");
 
-        verify(tokenFamilyRepository, never()).findByUuid(any());
+        verify(tokenFamilyStore, never()).findByUuid(any());
     }
 
     @Test
     @DisplayName("전체 기기 로그아웃 성공")
     void logoutAll_ShouldSucceed() {
         // given
-        when(tokenFamilyRepository.revokeAllByAccountId(USER_ID, RevokeReason.USER_LOGOUT)).thenReturn(3);
+        when(rtrService.revokeAllFamilies(USER_ID, RevokeReason.USER_LOGOUT)).thenReturn(3);
 
         // when
         int revokedCount = oauthApplicationService.logoutAll(USER_ID);
 
         // then
         assertThat(revokedCount).isEqualTo(3);
-        verify(tokenFamilyRepository).revokeAllByAccountId(USER_ID, RevokeReason.USER_LOGOUT);
+        verify(rtrService).revokeAllFamilies(USER_ID, RevokeReason.USER_LOGOUT);
     }
 
     @Test
@@ -370,12 +352,11 @@ class OAuthApplicationServiceTest {
     void refreshTokens_WithRevokedFamily_ShouldThrowException() {
         // given
         RefreshTokenClaims claims = new RefreshTokenClaims(USER_ID, FAMILY_UUID, USER_NICKNAME);
-        RefreshTokenEntity tokenEntity = new RefreshTokenEntity(100L, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
+        RefreshTokenInfo tokenInfo = new RefreshTokenInfo(100L, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
-        when(jwtProvider.generateTokenHash(REFRESH_TOKEN)).thenReturn(TOKEN_HASH);
-        when(tokenService.findByTokenHash(TOKEN_HASH)).thenReturn(tokenEntity);
-        doNothing().when(rtrService).detectReuse(tokenEntity);
+        when(tokenService.getStoredRefreshToken(REFRESH_TOKEN)).thenReturn(tokenInfo);
+        doNothing().when(rtrService).detectReuse(tokenInfo);
         doThrow(new FamilyRevokedException(FAMILY_ID))
                 .when(rtrService).validateFamilyActive(FAMILY_ID);
 

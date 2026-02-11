@@ -2,6 +2,7 @@ package com.ktb.auth.controller;
 
 import com.ktb.auth.config.OAuthProperties;
 import com.ktb.auth.dto.AuthorizationUrlResult;
+import com.ktb.auth.dto.CookieSpec;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthLoginResult;
 import com.ktb.auth.dto.jwt.TokenRefreshResult;
@@ -18,7 +19,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -121,8 +121,8 @@ public class AuthController {
 
         response.setHeader("Authorization", "Bearer " + result.accessToken());
 
-        Cookie refreshTokenCookie = cookieService.createRefreshTokenCookie(result.refreshToken());
-        response.addCookie(refreshTokenCookie);
+        CookieSpec cookieSpec = cookieService.createRefreshTokenCookie(result.refreshToken());
+        response.addCookie(cookieSpec.toServletCookie());
 
         OAuthLoginResponse responseDto = new OAuthLoginResponse(result.user());
 
@@ -153,8 +153,8 @@ public class AuthController {
 
         response.setHeader("Authorization", "Bearer " + result.accessToken());
 
-        Cookie newRefreshTokenCookie = cookieService.createRefreshTokenCookie(result.refreshToken());
-        response.addCookie(newRefreshTokenCookie);
+        CookieSpec cookieSpec = cookieService.createRefreshTokenCookie(result.refreshToken());
+        response.addCookie(cookieSpec.toServletCookie());
 
         TokenRefreshResponse responseDto = new TokenRefreshResponse(result.expiresIn());
 
@@ -184,8 +184,8 @@ public class AuthController {
             oauthApplicationService.logout(principal.getAccount().getId(), refreshToken);
         }
 
-        Cookie expiredCookie = cookieService.createExpiredRefreshTokenCookie();
-        response.addCookie(expiredCookie);
+        CookieSpec expiredSpec = cookieService.createExpiredRefreshTokenCookie();
+        response.addCookie(expiredSpec.toServletCookie());
 
         return ResponseEntity.ok(
             new ApiResponse<>("logout_success", null)
@@ -210,8 +210,8 @@ public class AuthController {
 
         int revokedCount = oauthApplicationService.logoutAll(principal.getAccount().getId());
 
-        Cookie expiredCookie = cookieService.createExpiredRefreshTokenCookie();
-        response.addCookie(expiredCookie);
+        CookieSpec expiredSpec = cookieService.createExpiredRefreshTokenCookie();
+        response.addCookie(expiredSpec.toServletCookie());
 
         return ResponseEntity.ok(
             new ApiResponse<>("all_sessions_logged_out", new LogoutAllResponse(revokedCount))
