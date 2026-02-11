@@ -123,6 +123,26 @@ public enum ErrorCode {
     ABUSE_DAILY_QUOTA_EXCEEDED(429, "ABUSE004", "일일 제출 한도를 초과했습니다"),
     ABUSE_COOLDOWN_ACTIVE(429, "ABUSE005", "재시도 대기 시간이 남아있습니다"),
 
+    // ==================== Notification 관련 ====================
+    NOTICE_NOT_FOUND(404, "N001", "공지사항을 찾을 수 없습니다"),
+    NOTICE_ALREADY_PUBLISHED(400, "N002", "이미 발행된 공지사항입니다"),
+    NOTICE_INVALID_STATUS_TRANSITION(400, "N003", "허용되지 않는 공지사항 상태 전이입니다"),
+    NOTICE_TITLE_REQUIRED(400, "N004", "공지 제목은 필수입니다"),
+    NOTICE_BODY_REQUIRED(400, "N005", "공지 내용은 필수입니다"),
+    NOTICE_TITLE_TOO_LONG(400, "N006", "공지 제목은 200자를 초과할 수 없습니다"),
+    NOTICE_BODY_TOO_LONG(400, "N007", "공지 내용은 2000자를 초과할 수 없습니다"),
+    USER_NOTIFICATION_NOT_FOUND(404, "N011", "알림을 찾을 수 없습니다"),
+    USER_NOTIFICATION_ACCESS_DENIED(403, "N012", "알림에 대한 접근 권한이 없습니다"),
+    USER_NOTIFICATION_TITLE_REQUIRED(400, "N013", "알림 제목은 필수입니다"),
+    USER_NOTIFICATION_TITLE_TOO_LONG(400, "N014", "알림 제목은 200자를 초과할 수 없습니다"),
+    NOTIFICATION_PREF_NOT_FOUND(404, "N021", "알림 수신 설정을 찾을 수 없습니다"),
+    CAMPAIGN_KEY_REQUIRED(400, "N030", "캠페인 키는 필수입니다"),
+    CAMPAIGN_NOT_FOUND(404, "N031", "캠페인을 찾을 수 없습니다"),
+    CAMPAIGN_KEY_DUPLICATE(409, "N032", "중복된 캠페인 키입니다"),
+    CAMPAIGN_INVALID_STATUS_TRANSITION(400, "N033", "허용되지 않는 캠페인 상태 전이입니다"),
+    CAMPAIGN_KEY_TOO_LONG(400, "N034", "캠페인 키는 200자를 초과할 수 없습니다"),
+    CAMPAIGN_SCHEDULED_AT_REQUIRED(400, "N035", "캠페인 예약 시간은 필수입니다"),
+
     // ==================== 공통 ====================
     INVALID_INPUT(400, "C001", "입력값이 올바르지 않습니다"),
     INTERNAL_SERVER_ERROR(422, "C002", "서버 내부 오류가 발생했습니다"),
