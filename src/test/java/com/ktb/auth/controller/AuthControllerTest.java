@@ -3,6 +3,7 @@ package com.ktb.auth.controller;
 import com.ktb.auth.config.CorsProperties;
 import com.ktb.auth.config.OAuthProperties;
 import com.ktb.auth.dto.AuthorizationUrlResult;
+import com.ktb.auth.dto.CookieSpec;
 import com.ktb.auth.security.adapter.SecurityUserAccount;
 import com.ktb.auth.security.config.SecurityConfig;
 import com.ktb.auth.security.config.SecurityProperties;
@@ -115,10 +116,18 @@ class AuthControllerTest {
         // given
         UserInfo userInfo = new UserInfo("테스트유저", true);
         OAuthLoginResult result = new OAuthLoginResult(ACCESS_TOKEN, REFRESH_TOKEN, userInfo);
-        Cookie mockCookie = new Cookie("refreshToken", REFRESH_TOKEN);
+        CookieSpec cookieSpec = new CookieSpec(
+                "refreshToken",
+                REFRESH_TOKEN,
+                1209600,
+                "/api/auth",
+                true,
+                true,
+                "Strict"
+        );
 
         when(oauthApplicationService.exchange("exchange-code-123")).thenReturn(result);
-        when(cookieService.createRefreshTokenCookie(REFRESH_TOKEN)).thenReturn(mockCookie);
+        when(cookieService.createRefreshTokenCookie(REFRESH_TOKEN)).thenReturn(cookieSpec);
 
         // when & then
         mockMvc.perform(post("/api/auth/oauth/exchange").with(csrf())
@@ -138,10 +147,18 @@ class AuthControllerTest {
     void refreshTokens_ShouldSucceedAndSetNewCookie() throws Exception {
         // given
         TokenRefreshResult result = new TokenRefreshResult("new.access.token", NEW_REFRESH_TOKEN, 600);
-        Cookie newCookie = new Cookie("refreshToken", NEW_REFRESH_TOKEN);
+        CookieSpec cookieSpec = new CookieSpec(
+                "refreshToken",
+                NEW_REFRESH_TOKEN,
+                1209600,
+                "/api/auth",
+                true,
+                true,
+                "Strict"
+        );
 
         when(oauthApplicationService.refreshTokens(REFRESH_TOKEN)).thenReturn(result);
-        when(cookieService.createRefreshTokenCookie(NEW_REFRESH_TOKEN)).thenReturn(newCookie);
+        when(cookieService.createRefreshTokenCookie(NEW_REFRESH_TOKEN)).thenReturn(cookieSpec);
 
         // when & then
         mockMvc.perform(post("/api/auth/tokens").with(csrf())
@@ -169,9 +186,16 @@ class AuthControllerTest {
         // given
         SecurityUserAccount principal = new SecurityUserAccount(1L, "사용자", List.of("ROLE_USER"));
 
-        Cookie expiredCookie = new Cookie("refreshToken", "");
-        expiredCookie.setMaxAge(0);
-        when(cookieService.createExpiredRefreshTokenCookie()).thenReturn(expiredCookie);
+        CookieSpec expiredSpec = new CookieSpec(
+                "refreshToken",
+                "",
+                0,
+                "/api/auth",
+                true,
+                true,
+                "Strict"
+        );
+        when(cookieService.createExpiredRefreshTokenCookie()).thenReturn(expiredSpec);
 
         // when & then
         mockMvc.perform(post("/api/auth/logout").with(csrf()).with(user(principal))
@@ -189,9 +213,16 @@ class AuthControllerTest {
         SecurityUserAccount principal = new SecurityUserAccount(1L, "사용자", List.of("ROLE_USER"));
 
         when(oauthApplicationService.logoutAll(any())).thenReturn(3);
-        Cookie expiredCookie = new Cookie("refreshToken", "");
-        expiredCookie.setMaxAge(0);
-        when(cookieService.createExpiredRefreshTokenCookie()).thenReturn(expiredCookie);
+        CookieSpec expiredSpec = new CookieSpec(
+                "refreshToken",
+                "",
+                0,
+                "/api/auth",
+                true,
+                true,
+                "Strict"
+        );
+        when(cookieService.createExpiredRefreshTokenCookie()).thenReturn(expiredSpec);
 
         // when & then
         mockMvc.perform(post("/api/auth/logout/all").with(csrf()).with(user(principal)))
