@@ -2,9 +2,10 @@ package com.ktb.auth.dto.jwt;
 
 import java.time.LocalDateTime;
 
-public record RefreshTokenEntity(
+public record RefreshTokenInfo(
         Long id,
         Long familyId,
-        Boolean used,
-        LocalDateTime expiresAt) {
+        boolean used,
+        LocalDateTime expiresAt
+) {
 }

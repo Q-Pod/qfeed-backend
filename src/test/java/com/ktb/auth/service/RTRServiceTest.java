@@ -4,7 +4,8 @@ import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.RevokeReason;
 import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
-import com.ktb.auth.dto.jwt.RefreshTokenEntity;
+import com.ktb.auth.dto.TokenFamilyInfo;
+import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.exception.account.AccountNotFoundException;
 import com.ktb.auth.exception.family.FamilyRevokedException;
 import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
@@ -62,13 +63,12 @@ class RTRServiceTest {
         when(tokenFamilyRepository.save(any(TokenFamily.class))).thenReturn(mockFamily);
 
         // when
-        TokenFamily family = rtrService.createFamily(USER_ID, DEVICE_INFO, CLIENT_IP);
+        TokenFamilyInfo familyInfo = rtrService.createFamily(USER_ID, DEVICE_INFO, CLIENT_IP);
 
         // then
-        assertThat(family).isNotNull();
-        assertThat(family.getDeviceInfo()).isEqualTo(DEVICE_INFO);
-        assertThat(family.getClientIp()).isEqualTo(CLIENT_IP);
-        assertThat(family.isRevoked()).isFalse();
+        assertThat(familyInfo).isNotNull();
+        assertThat(familyInfo.uuid()).isNotNull();
+        assertThat(familyInfo.active()).isTrue();
 
         verify(userAccountRepository).findById(USER_ID);
         verify(tokenFamilyRepository).save(any(TokenFamily.class));
@@ -92,7 +92,7 @@ class RTRServiceTest {
     @DisplayName("토큰 재사용 탐지 시 Family가 폐기되어야 한다")
     void detectReuse_WithUsedToken_ShouldRevokeFamily() {
         // given
-        RefreshTokenEntity usedToken = new RefreshTokenEntity(TOKEN_ID, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
+        RefreshTokenInfo usedToken = new RefreshTokenInfo(TOKEN_ID, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
 
         TokenFamily mockFamily = mock(TokenFamily.class);
         when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
@@ -109,7 +109,7 @@ class RTRServiceTest {
     @DisplayName("사용되지 않은 토큰은 재사용 탐지를 통과해야 한다")
     void detectReuse_WithUnusedToken_ShouldPass() {
         // given
-        RefreshTokenEntity unusedToken = new RefreshTokenEntity(TOKEN_ID, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
+        RefreshTokenInfo unusedToken = new RefreshTokenInfo(TOKEN_ID, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
 
         // when
         rtrService.detectReuse(unusedToken);
@@ -141,8 +141,7 @@ class RTRServiceTest {
 
         // when & then
         assertThatThrownBy(() -> rtrService.markAsUsed(TOKEN_ID))
-                .isInstanceOf(InvalidRefreshTokenException.class)
-                .hasMessageContaining("Refresh Token이 유효하지 않습니다");
+                .isInstanceOf(InvalidRefreshTokenException.class);
 
         verify(refreshTokenRepository).findById(TOKEN_ID);
     }

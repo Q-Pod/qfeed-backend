@@ -4,31 +4,27 @@ import com.ktb.auth.client.KakaoOAuth2Client;
 import com.ktb.auth.config.KakaoOAuthProviderProperties;
 import com.ktb.auth.config.KakaoOAuthRegistrationProperties;
 import com.ktb.auth.domain.OAuthProvider;
-import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.RevokeReason;
-import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.dto.AuthorizationUrlResult;
 import com.ktb.auth.dto.OAuthExchangeCodeResult;
 import com.ktb.auth.dto.OAuthExchangePayload;
-import com.ktb.auth.dto.jwt.RefreshTokenClaims;
-import com.ktb.auth.dto.jwt.RefreshTokenEntity;
-import com.ktb.auth.dto.response.KakaoUserInfoResponse;
 import com.ktb.auth.dto.OAuthLoginResult;
-import com.ktb.auth.dto.jwt.TokenRefreshResult;
+import com.ktb.auth.dto.TokenFamilyInfo;
 import com.ktb.auth.dto.UserInfo;
+import com.ktb.auth.dto.jwt.RefreshTokenClaims;
+import com.ktb.auth.dto.jwt.RefreshTokenInfo;
+import com.ktb.auth.dto.jwt.TokenRefreshResult;
+import com.ktb.auth.dto.response.KakaoUserInfoResponse;
 import com.ktb.auth.exception.family.FamilyOwnershipException;
 import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
 import com.ktb.auth.exception.oauth.OAuthProviderException;
 import com.ktb.auth.exception.oauth.UnsupportedProviderException;
-import com.ktb.auth.jwt.JwtProvider;
-import com.ktb.auth.repository.RefreshTokenRepository;
-import com.ktb.auth.repository.TokenFamilyRepository;
 import com.ktb.auth.service.OAuthApplicationService;
 import com.ktb.auth.service.OAuthDomainService;
 import com.ktb.auth.service.RTRService;
+import com.ktb.auth.service.TokenFamilyStore;
 import com.ktb.auth.service.TokenService;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,9 +44,7 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     private final OAuthDomainService oauthDomainService;
     private final TokenService tokenService;
     private final RTRService rtrService;
-    private final JwtProvider jwtProvider;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final TokenFamilyRepository tokenFamilyRepository;
+    private final TokenFamilyStore tokenFamilyStore;
     private final KakaoOAuthProviderProperties kakaoProviderProperties;
     private final KakaoOAuthRegistrationProperties kakaoRegistrationProperties;
 
@@ -125,18 +119,24 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     public OAuthLoginResult exchange(String exchangeCode) {
         OAuthExchangePayload payload = oauthDomainService.consumeExchangeCode(exchangeCode);
 
-        TokenFamily family = rtrService.createFamily(payload.accountId(), payload.deviceInfo(), payload.clientIp());
+        TokenFamilyInfo family = rtrService.createFamily(
+                payload.accountId(),
+                payload.deviceInfo(),
+                payload.clientIp()
+        );
 
-        String accessToken = tokenService.issueAccessToken(payload.accountId(), DEFAULT_ROLES, payload.nickname());
-        String refreshToken = jwtProvider.createRefreshToken(payload.accountId(), family.getUuid(), payload.nickname());
+        String accessToken = tokenService.issueAccessToken(
+                payload.accountId(),
+                DEFAULT_ROLES,
+                payload.nickname()
+        );
+        String refreshToken = tokenService.issueRefreshToken(
+                payload.accountId(),
+                family.uuid(),
+                payload.nickname()
+        );
 
-        String tokenHash = jwtProvider.generateTokenHash(refreshToken);
-        RefreshToken refreshTokenEntity = RefreshToken.builder()
-                .family(family)
-                .tokenHash(tokenHash)
-                .expiresAt(LocalDateTime.now().plus(jwtProvider.refreshTokenDuration()))
-                .build();
-        refreshTokenRepository.save(refreshTokenEntity);
+        tokenService.storeRefreshToken(family.id(), refreshToken);
 
         return new OAuthLoginResult(
                 accessToken,
@@ -150,54 +150,49 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     public TokenRefreshResult refreshTokens(String refreshToken) {
         RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
 
-        String tokenHash = jwtProvider.generateTokenHash(refreshToken);
-        RefreshTokenEntity tokenEntity = tokenService.findByTokenHash(tokenHash);
+        RefreshTokenInfo tokenInfo = tokenService.getStoredRefreshToken(refreshToken);
 
-        rtrService.detectReuse(tokenEntity);
+        rtrService.detectReuse(tokenInfo);
+        rtrService.validateFamilyActive(tokenInfo.familyId());
+        rtrService.markAsUsed(tokenInfo.id());
 
-        rtrService.validateFamilyActive(tokenEntity.familyId());
-
-        rtrService.markAsUsed(tokenEntity.id());
-
-        String newAccessToken = tokenService.issueAccessToken(claims.userId(), DEFAULT_ROLES, claims.userNickname());
-
-        String newRefreshToken = jwtProvider.createRefreshToken(claims.userId(), claims.familyUuid(), claims.userNickname());
-
-        TokenFamily family = tokenFamilyRepository.findByUuid(claims.familyUuid())
+        TokenFamilyInfo family = tokenFamilyStore.findByUuid(claims.familyUuid())
                 .orElseThrow(() -> new TokenFamilyNotFoundException(claims.familyUuid()));
 
-        String newTokenHash = jwtProvider.generateTokenHash(newRefreshToken);
+        String newAccessToken = tokenService.issueAccessToken(
+                claims.userId(),
+                DEFAULT_ROLES,
+                claims.userNickname()
+        );
+        String newRefreshToken = tokenService.issueRefreshToken(
+                claims.userId(),
+                claims.familyUuid(),
+                claims.userNickname()
+        );
 
-        RefreshToken newTokenEntity = RefreshToken.builder()
-                .family(family)
-                .tokenHash(newTokenHash)
-                .expiresAt(LocalDateTime.now().plus(jwtProvider.refreshTokenDuration()))
-                .build();
-
-        family.updateLastUsed();
-
-        refreshTokenRepository.save(newTokenEntity);
+        tokenFamilyStore.updateLastUsed(claims.familyUuid());
+        tokenService.storeRefreshToken(family.id(), newRefreshToken);
 
         log.info("Token Refresh 성공: userId={}, familyUuid={}", claims.userId(), claims.familyUuid());
 
-        return new TokenRefreshResult(newAccessToken, newRefreshToken, jwtProvider.accessTokenExpiresSeconds());
+        return new TokenRefreshResult(
+                newAccessToken,
+                newRefreshToken,
+                (int) tokenService.getAccessTokenExpiresSeconds()
+        );
     }
 
     @Override
     @Transactional
     public void logout(Long accountId, String refreshToken) {
-        // Refresh Token 검증
         RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
 
         if (!claims.userId().equals(accountId)) {
             throw new FamilyOwnershipException();
         }
 
-        // Family UUID로 Family 조회 및 무효화
-        TokenFamily family = tokenFamilyRepository.findByUuid(claims.familyUuid())
-                .orElseThrow(() -> new TokenFamilyNotFoundException(claims.familyUuid()));
-
-        family.revoke(RevokeReason.USER_LOGOUT);
+        RefreshTokenInfo tokenInfo = tokenService.getStoredRefreshToken(refreshToken);
+        rtrService.revokeFamily(tokenInfo.familyId(), RevokeReason.USER_LOGOUT);
 
         log.info("로그아웃 성공: accountId={}, familyUuid={}", accountId, claims.familyUuid());
     }
@@ -205,7 +200,7 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     @Override
     @Transactional
     public int logoutAll(Long accountId) {
-        int count = tokenFamilyRepository.revokeAllByAccountId(accountId, RevokeReason.USER_LOGOUT);
+        int count = rtrService.revokeAllFamilies(accountId, RevokeReason.USER_LOGOUT);
 
         log.info("전체 로그아웃 성공: accountId={}, revokedCount={}", accountId, count);
         return count;
