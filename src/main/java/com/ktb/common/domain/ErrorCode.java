@@ -143,6 +143,15 @@ public enum ErrorCode {
     CAMPAIGN_KEY_TOO_LONG(400, "N034", "캠페인 키는 200자를 초과할 수 없습니다"),
     CAMPAIGN_SCHEDULED_AT_REQUIRED(400, "N035", "캠페인 예약 시간은 필수입니다"),
 
+    // ==================== Device 관련 ====================
+    DEVICE_NOT_FOUND(404, "DEV001", "디바이스를 찾을 수 없습니다"),
+    DEVICE_TOKEN_REQUIRED(400, "DEV002", "푸시 토큰이 필요합니다"),
+    DEVICE_ALREADY_REGISTERED(409, "DEV003", "이미 등록된 디바이스입니다"),
+
+    // ==================== Notification Target 관련 ====================
+    NOTIFICATION_TARGET_NOT_FOUND(404, "NT001", "발송 대상을 찾을 수 없습니다"),
+    NOTIFICATION_TARGET_DUPLICATE(409, "NT002", "중복 발송 대상입니다"),
+
     // ==================== 공통 ====================
     INVALID_INPUT(400, "C001", "입력값이 올바르지 않습니다"),
     INTERNAL_SERVER_ERROR(422, "C002", "서버 내부 오류가 발생했습니다"),
