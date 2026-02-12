@@ -25,9 +25,13 @@ public record AiFeedbackRequest(
         String type,
 
         @JsonProperty("category")
-        // AI 서버가 허용하는 카테고리 값 목록입니다.
+        // 현재 QuestionCategory enum 기준 전체 카테고리 목록입니다.
         @Schema(description = "질문 카테고리", example = "DB", requiredMode = Schema.RequiredMode.REQUIRED,
-                allowableValues = {"OS", "NETWORK", "DB", "COMPUTER_ARCHITECTURE", "ALGORITHM", "DATA_STRUCTURE"})
+                allowableValues = {
+                        "OS", "NETWORK", "DB", "COMPUTER_ARCHITECTURE", "DATA_STRUCTURE_ALGORITHM",
+                        "SOCIAL", "NOTIFICATION", "REALTIME", "SEARCH", "MEDIA", "STORAGE", "PLATFORM", "TRANSACTION",
+                        "PORTFOLIO"
+                })
         String category,
 
         @JsonProperty("interview_type")

@@ -6,6 +6,7 @@ import com.ktb.question.exception.QuestionAlreadyDeletedException;
 import com.ktb.question.exception.QuestionInvalidContentException;
 import com.ktb.question.exception.QuestionRequiredCategoryException;
 import com.ktb.question.exception.QuestionRequiredTypeException;
+import com.ktb.question.exception.QuestionTypeCategoryMismatchException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -60,6 +61,7 @@ public class Question extends BaseActivatableEntity {
         validateContent(content);
         validateType(type);
         validateCategory(category);
+        validateTypeAndCategory(type, category);
         this.content = content;
         this.type = type;
         this.category = category;
@@ -88,12 +90,14 @@ public class Question extends BaseActivatableEntity {
     public void updateType(QuestionType type) {
         validateNotDeleted();
         validateType(type);
+        validateTypeAndCategory(type, this.category);
         this.type = type;
     }
 
     public void updateCategory(QuestionCategory category) {
         validateNotDeleted();
         validateCategory(category);
+        validateTypeAndCategory(this.type, category);
         this.category = category;
     }
 
@@ -140,6 +144,12 @@ public class Question extends BaseActivatableEntity {
     private void validateCategory(QuestionCategory category) {
         if (category == null) {
             throw new QuestionRequiredCategoryException();
+        }
+    }
+
+    private void validateTypeAndCategory(QuestionType type, QuestionCategory category) {
+        if (!category.supports(type)) {
+            throw new QuestionTypeCategoryMismatchException();
         }
     }
 

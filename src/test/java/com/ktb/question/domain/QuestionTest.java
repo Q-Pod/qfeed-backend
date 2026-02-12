@@ -5,6 +5,7 @@ import com.ktb.question.exception.QuestionAlreadyDeletedException;
 import com.ktb.question.exception.QuestionInvalidContentException;
 import com.ktb.question.exception.QuestionRequiredCategoryException;
 import com.ktb.question.exception.QuestionRequiredTypeException;
+import com.ktb.question.exception.QuestionTypeCategoryMismatchException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -161,6 +162,34 @@ class QuestionTest {
             assertThatThrownBy(() -> Question.create(content, QuestionType.CS, QuestionCategory.OS))
                     .isInstanceOf(QuestionInvalidContentException.class);
         }
+
+        @Test
+        @DisplayName("질문 유형-카테고리 조합이 다르면 QuestionTypeCategoryMismatchException 발생")
+        void create_WithMismatchedTypeCategory_ShouldThrowException() {
+            // Given
+            String content = QuestionFixture.createContentWithMinLength();
+
+            // When & Then
+            assertThatThrownBy(() -> Question.create(
+                    content,
+                    QuestionType.CS,
+                    QuestionCategory.MEDIA
+            )).isInstanceOf(QuestionTypeCategoryMismatchException.class);
+        }
+
+        @Test
+        @DisplayName("PORTFOLIO 유형은 PORTFOLIO 카테고리로 생성 성공")
+        void create_PortfolioTypeWithPortfolioCategory_ShouldSucceed() {
+            // Given
+            String content = QuestionFixture.createContentWithMinLength();
+
+            // When
+            Question question = Question.create(content, QuestionType.PORTFOLIO, QuestionCategory.PORTFOLIO);
+
+            // Then
+            assertThat(question.getType()).isEqualTo(QuestionType.PORTFOLIO);
+            assertThat(question.getCategory()).isEqualTo(QuestionCategory.PORTFOLIO);
+        }
     }
 
     @Nested
@@ -282,16 +311,16 @@ class QuestionTest {
         }
 
         @Test
-        @DisplayName("질문 유형 업데이트 성공")
+        @DisplayName("동일한 질문 유형으로 업데이트 성공")
         void updateType_WithValidType_ShouldSucceed() {
             // Given
             Question question = QuestionFixture.createQuestion();
 
             // When
-            question.updateType(QuestionType.SYSTEM_DESIGN);
+            question.updateType(QuestionType.CS);
 
             // Then
-            assertThat(question.getType()).isEqualTo(QuestionType.SYSTEM_DESIGN);
+            assertThat(question.getType()).isEqualTo(QuestionType.CS);
         }
 
         @Test
@@ -314,6 +343,28 @@ class QuestionTest {
             // When & Then
             assertThatThrownBy(() -> question.updateType(QuestionType.SYSTEM_DESIGN))
                     .isInstanceOf(QuestionAlreadyDeletedException.class);
+        }
+
+        @Test
+        @DisplayName("질문 유형 변경 시 현재 카테고리와 맞지 않으면 예외 발생")
+        void updateType_WithMismatchedCategory_ShouldThrowException() {
+            // Given
+            Question question = QuestionFixture.createQuestion(); // CS + OS
+
+            // When & Then
+            assertThatThrownBy(() -> question.updateType(QuestionType.SYSTEM_DESIGN))
+                    .isInstanceOf(QuestionTypeCategoryMismatchException.class);
+        }
+
+        @Test
+        @DisplayName("PORTFOLIO 유형으로 변경 시 카테고리 미허용으로 예외 발생")
+        void updateType_ToPortfolio_ShouldThrowException() {
+            // Given
+            Question question = QuestionFixture.createQuestion(); // CS + OS
+
+            // When & Then
+            assertThatThrownBy(() -> question.updateType(QuestionType.PORTFOLIO))
+                    .isInstanceOf(QuestionTypeCategoryMismatchException.class);
         }
 
         @Test
@@ -349,6 +400,17 @@ class QuestionTest {
             // When & Then
             assertThatThrownBy(() -> question.updateCategory(QuestionCategory.NETWORK))
                     .isInstanceOf(QuestionAlreadyDeletedException.class);
+        }
+
+        @Test
+        @DisplayName("질문 카테고리 변경 시 현재 유형과 맞지 않으면 예외 발생")
+        void updateCategory_WithMismatchedType_ShouldThrowException() {
+            // Given
+            Question question = QuestionFixture.createQuestion(); // CS + OS
+
+            // When & Then
+            assertThatThrownBy(() -> question.updateCategory(QuestionCategory.MEDIA))
+                    .isInstanceOf(QuestionTypeCategoryMismatchException.class);
         }
     }
 

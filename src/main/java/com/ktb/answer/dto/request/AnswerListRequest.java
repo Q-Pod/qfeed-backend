@@ -21,11 +21,16 @@ public record AnswerListRequest(
         AnswerType type,
 
         @Parameter(description = "질문 카테고리 필터 (선택)", example = "OS")
-        @Schema(description = "질문 카테고리 필터 (OS, NETWORK, DB, COMPUTER_ARCHITECTURE, DATA_STRUCTURE_ALGORITHM)", example = "OS")
+        @Schema(
+                description = "질문 카테고리 필터 "
+                        + "(OS, NETWORK, DB, COMPUTER_ARCHITECTURE, DATA_STRUCTURE_ALGORITHM, "
+                        + "SOCIAL, NOTIFICATION, REALTIME, SEARCH, MEDIA, STORAGE, PLATFORM, TRANSACTION, PORTFOLIO)",
+                example = "OS"
+        )
         QuestionCategory category,
 
-        @Parameter(description = "질문 타입 필터 (선택, MVP: CS만 허용)", example = "CS")
-        @Schema(description = "질문 타입 필터 (CS, SYSTEM_DESIGN, PORTFOLIO). 현재는 CS만 지원", example = "CS")
+        @Parameter(description = "질문 타입 필터 (선택)", example = "CS")
+        @Schema(description = "질문 타입 필터 (CS, SYSTEM_DESIGN, PORTFOLIO)", example = "CS")
         QuestionType questionType,
 
         @Parameter(description = "조회 시작 날짜 (YYYY-MM-DD, 미입력 시 dateTo 기준 1개월 전)", example = "2026-01-01")
