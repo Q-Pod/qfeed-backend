@@ -6,7 +6,9 @@ import com.ktb.common.exception.BusinessException;
 public class QuestionDisabledException extends BusinessException {
 
     public QuestionDisabledException(Long questionId) {
-        String errMsg = String.format("%s: %d", ErrorCode.QUESTION_DISABLED.getMessage(), questionId);
-        super(ErrorCode.QUESTION_DISABLED, errMsg);
+        super(
+                ErrorCode.QUESTION_DISABLED,
+                String.format("%s: %d", ErrorCode.QUESTION_DISABLED.getMessage(), questionId)
+        );
     }
 }

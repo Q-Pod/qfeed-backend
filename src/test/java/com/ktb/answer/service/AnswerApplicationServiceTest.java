@@ -62,6 +62,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -442,14 +443,37 @@ class AnswerApplicationServiceTest {
         @DisplayName("지원되지 않는 questionType일 때 예외 발생")
         void getList_WithUnsupportedQuestionType_ShouldThrowException() {
             // Given
-            QuestionType unsupportedType = QuestionType.SYSTEM_DESIGN;
+            QuestionType unsupportedType = QuestionType.PORTFOLIO;
 
             // When & Then
             assertThatThrownBy(() ->
                     answerApplicationService.getList(
                             ACCOUNT_ID, null, null, unsupportedType, null, null, null, 10))
                     .isInstanceOf(AnswerListInvalidInputException.class)
-                    .hasMessageContaining("questionType is only supported for");
+                    .hasMessageContaining("questionType is only supported for [CS, SYSTEM_DESIGN]");
+
+            verifyNoInteractions(answerRepository);
+        }
+
+        @Test
+        @DisplayName("SYSTEM_DESIGN questionType으로 정상 조회")
+        void getList_WithSystemDesignQuestionType_ShouldSucceed() {
+            // Given
+            Slice<Answer> emptySlice = new SliceImpl<>(Collections.emptyList());
+            when(answerRepository.findByAccountIdWithFiltersNoCursor(
+                    eq(ACCOUNT_ID), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(emptySlice);
+
+            // When
+            AnswerListResponse result = answerApplicationService.getList(
+                    ACCOUNT_ID, null, null, QuestionType.SYSTEM_DESIGN, null, null, null, 10
+            );
+
+            // Then
+            assertThat(result).isNotNull();
+            verify(answerRepository).findByAccountIdWithFiltersNoCursor(
+                    eq(ACCOUNT_ID), any(), any(), eq(QuestionType.SYSTEM_DESIGN), any(), any(), any()
+            );
         }
 
         @Test

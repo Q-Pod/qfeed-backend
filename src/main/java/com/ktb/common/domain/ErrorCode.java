@@ -43,6 +43,7 @@ public enum ErrorCode {
     QUESTION_CONTENT_HAS_SPACES(400, "Q008", "질문 내용은 앞뒤 공백을 포함할 수 없습니다"),
     QUESTION_CONTENT_TOO_SHORT(400, "Q009", "질문 내용은 2자 이상이어야 합니다"),
     QUESTION_CONTENT_TOO_LONG(400, "Q010", "질문 내용은 200자를 초과할 수 없습니다"),
+    QUESTION_TYPE_CATEGORY_MISMATCH(400, "Q011", "질문 유형과 카테고리 조합이 올바르지 않습니다"),
 
     // ==================== Answer 관련 ====================
     ANSWER_NOT_FOUND(404, "A001", "답변을 찾을 수 없습니다"),

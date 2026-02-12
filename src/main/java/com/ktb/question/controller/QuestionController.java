@@ -24,6 +24,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/questions")
 @RequiredArgsConstructor
 @Validated
+@Slf4j
 public class QuestionController {
 
     private final QuestionService questionService;
@@ -62,7 +64,11 @@ public class QuestionController {
             @Parameter(description = "사이즈", example = "10")
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size
     ) {
+        log.info("GET /api/questions - type: {}, category: {}, cursor: {}, size: {}",
+                type, category, cursor, size);
         QuestionListResponse result = questionService.getQuestions(category, type, cursor, size);
+        log.info("GET /api/questions success - count: {}, hasNext: {}",
+                result.questions().size(), result.pagination().hasNext());
         return ResponseEntity.ok(new ApiResponse<>("questions_retrieval_success", result));
     }
 
@@ -75,7 +81,9 @@ public class QuestionController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
     })
     public ResponseEntity<ApiResponse<QuestionCategoryListResponse>> getQuestionCategories() {
+        log.info("GET /api/questions/categories");
         QuestionCategoryListResponse result = questionService.getQuestionCategories();
+        log.info("GET /api/questions/categories success - typeGroups: {}", result.categories().size());
         return ResponseEntity.ok(new ApiResponse<>("question_categories_retrieval_success", result));
     }
 
@@ -88,7 +96,9 @@ public class QuestionController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
     })
     public ResponseEntity<ApiResponse<QuestionTypeListResponse>> getQuestionTypes() {
+        log.info("GET /api/questions/types");
         QuestionTypeListResponse result = questionService.getQuestionTypes();
+        log.info("GET /api/questions/types success - count: {}", result.types().size());
         return ResponseEntity.ok(new ApiResponse<>("question_types_retrieval_success", result));
     }
 
@@ -106,7 +116,10 @@ public class QuestionController {
             @Parameter(description = "질문 ID", example = "1")
             @PathVariable Long questionId
     ) {
+        log.info("GET /api/questions/{}", questionId);
         QuestionDetailResponse result = questionService.getQuestionDetail(questionId);
+        log.info("GET /api/questions/{} success - type: {}, category: {}",
+                questionId, result.type(), result.category());
         return ResponseEntity.ok(new ApiResponse<>("question_retrieval_success", result));
     }
 
@@ -128,7 +141,11 @@ public class QuestionController {
             @Parameter(description = "사이즈", example = "10")
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size
     ) {
+        log.info("GET /api/questions/search - keyword: {}, type: {}, category: {}, cursor: {}, size: {}",
+                keyword, type, category, cursor, size);
         QuestionSearchResponse result = questionService.search(keyword, category, type, cursor, size);
+        log.info("GET /api/questions/search success - count: {}, hasNext: {}",
+                result.questions().size(), result.pagination().hasNext());
         return ResponseEntity.ok(new ApiResponse<>("search_success", result));
     }
 
@@ -143,7 +160,10 @@ public class QuestionController {
                     content = @Content(schema = @Schema(implementation = com.ktb.common.dto.CommonErrorResponse.class)))
     })
     public ResponseEntity<ApiResponse<QuestionDetailResponse>> getDailyRecommendation() {
+        log.info("GET /api/questions/recommendation");
         QuestionDetailResponse result = questionService.getDailyRecommendation();
+        log.info("GET /api/questions/recommendation success - questionId: {}, type: {}, category: {}",
+                result.questionId(), result.type(), result.category());
         return ResponseEntity.ok(new ApiResponse<>("question_recommendation_success", result));
     }
 
@@ -160,7 +180,11 @@ public class QuestionController {
     public ResponseEntity<ApiResponse<QuestionDetailResponse>> createQuestion(
             @Valid @RequestBody QuestionCreateRequest request
     ) {
+        int keywordCount = request.keywords() == null ? 0 : request.keywords().size();
+        log.info("POST /api/questions - type: {}, category: {}, keywordCount: {}",
+                request.type(), request.category(), keywordCount);
         QuestionDetailResponse result = questionService.createQuestion(request);
+        log.info("POST /api/questions success - questionId: {}", result.questionId());
         return ResponseEntity.status(201)
                 .body(new ApiResponse<>("question_created_success", result));
     }
@@ -180,7 +204,11 @@ public class QuestionController {
             @PathVariable Long questionId,
             @RequestBody QuestionUpdateRequest request
     ) {
+        int keywordCount = request.keywords() == null ? 0 : request.keywords().size();
+        log.info("PATCH /api/questions/{} - hasContent: {}, type: {}, category: {}, useYn: {}, keywordCount: {}",
+                questionId, request.content() != null, request.type(), request.category(), request.useYn(), keywordCount);
         QuestionDetailResponse result = questionService.updateQuestion(questionId, request);
+        log.info("PATCH /api/questions/{} success", questionId);
         return ResponseEntity.ok(new ApiResponse<>("question_updated_success", result));
     }
 
@@ -198,7 +226,9 @@ public class QuestionController {
             @Parameter(description = "질문 ID", example = "1")
             @PathVariable Long questionId
     ) {
+        log.info("DELETE /api/questions/{}", questionId);
         questionService.deleteQuestion(questionId);
+        log.info("DELETE /api/questions/{} success", questionId);
         return ResponseEntity.ok(new ApiResponse<>("question_deleted_success", null));
     }
 
@@ -216,7 +246,9 @@ public class QuestionController {
             @Parameter(description = "질문 ID", example = "1")
             @PathVariable Long questionId
     ) {
+        log.info("GET /api/questions/{}/keywords", questionId);
         QuestionKeywordListResponse result = questionService.getQuestionKeywords(questionId);
+        log.info("GET /api/questions/{}/keywords success - count: {}", questionId, result.keywords().size());
         return ResponseEntity.ok(new ApiResponse<>("question_keywords_retrieval_success", result));
     }
 
@@ -235,7 +267,14 @@ public class QuestionController {
             @PathVariable Long questionId,
             @Valid @RequestBody QuestionKeywordCheckRequest request
     ) {
+        int keywordCount = request.keywords() == null ? 0 : request.keywords().size();
+        log.info("POST /api/questions/{}/keyword-checks - keywordCount: {}", questionId, keywordCount);
         QuestionKeywordCheckResponse result = questionService.checkQuestionKeywords(questionId, request.keywords());
+        long includedCount = result.keywords().stream()
+                .filter(match -> match.included())
+                .count();
+        log.info("POST /api/questions/{}/keyword-checks success - includedCount: {}",
+                questionId, includedCount);
         return ResponseEntity.ok(new ApiResponse<>("question_keywords_check_success", result));
     }
 }
