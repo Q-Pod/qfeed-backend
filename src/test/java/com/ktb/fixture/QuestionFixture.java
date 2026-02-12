@@ -21,7 +21,12 @@ public class QuestionFixture {
     }
 
     public static Question createQuestion(QuestionType type) {
-        return Question.create(DEFAULT_CONTENT, type, DEFAULT_CATEGORY);
+        QuestionCategory category = switch (type) {
+            case SYSTEM_DESIGN -> QuestionCategory.MEDIA;
+            case CS -> DEFAULT_CATEGORY;
+            case PORTFOLIO -> QuestionCategory.PORTFOLIO;
+        };
+        return Question.create(DEFAULT_CONTENT, type, category);
     }
 
     public static Question createQuestion(QuestionCategory category) {

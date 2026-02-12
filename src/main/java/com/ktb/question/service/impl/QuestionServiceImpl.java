@@ -27,13 +27,16 @@ import com.ktb.question.service.QuestionService;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Slice;
@@ -43,9 +46,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class QuestionServiceImpl implements QuestionService {
 
     private static final int MIN_SEARCH_KEYWORD_LENGTH = 2;
+    private static final Set<QuestionType> EXPOSED_TYPES = EnumSet.of(
+            QuestionType.CS,
+            QuestionType.SYSTEM_DESIGN
+    );
 
     private final QuestionRepository questionRepository;
     private final QuestionHashtagRepository questionHashtagRepository;
@@ -53,9 +61,14 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public QuestionListResponse getQuestions(QuestionCategory category, QuestionType type, Long cursor, int size) {
+        log.debug("getQuestions - type: {}, category: {}, cursor: {}, size: {}",
+                type, category, cursor, size);
         PageRequest pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "id"));
         Slice<Question> questions = questionRepository.findActiveByFilters(type, category, cursor, pageable);
         Map<Long, List<String>> keywordMap = loadKeywordsByQuestionIds(questions.getContent());
+
+        log.debug("getQuestions success - count: {}, hasNext: {}",
+                questions.getContent().size(), questions.hasNext());
 
         return new QuestionListResponse(
                 toSummaryResponses(questions.getContent(), keywordMap),
@@ -65,19 +78,27 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public QuestionDetailResponse getQuestionDetail(Long questionId) {
+        log.debug("getQuestionDetail - questionId: {}", questionId);
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new QuestionNotFoundException(questionId));
 
+        log.debug("getQuestionDetail success - questionId: {}, type: {}, category: {}",
+                question.getId(), question.getType(), question.getCategory());
         return toDetailResponse(question);
     }
 
     @Override
     public QuestionSearchResponse search(String keyword, QuestionCategory category, QuestionType type, Long cursor, int size) {
+        log.debug("search - keyword: {}, type: {}, category: {}, cursor: {}, size: {}",
+                keyword, type, category, cursor, size);
         validateKeyword(keyword);
 
         PageRequest pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "id"));
         Slice<Question> questions = questionRepository.searchActiveByKeyword(keyword, type, category, cursor, pageable);
         Map<Long, List<String>> keywordMap = loadKeywordsByQuestionIds(questions.getContent());
+
+        log.debug("search success - count: {}, hasNext: {}",
+                questions.getContent().size(), questions.hasNext());
 
         return new QuestionSearchResponse(
                 toSummaryResponses(questions.getContent(), keywordMap),
@@ -87,28 +108,38 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public QuestionDetailResponse getDailyRecommendation() {
+        log.debug("getDailyRecommendation");
         Long questionId = questionRepository.findRandomActiveId()
                 .orElseThrow(() -> new QuestionNotFoundException(0L));
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new QuestionNotFoundException(questionId));
 
+        log.info("getDailyRecommendation success - questionId: {}, type: {}, category: {}",
+                question.getId(), question.getType(), question.getCategory());
         return toDetailResponse(question);
     }
 
     @Override
     @Transactional
     public QuestionDetailResponse createQuestion(QuestionCreateRequest request) {
+        int keywordCount = request.keywords() == null ? 0 : request.keywords().size();
+        log.info("createQuestion - type: {}, category: {}, keywordCount: {}",
+                request.type(), request.category(), keywordCount);
         Question question = Question.create(request.content(), request.type(), request.category());
         Question saved = questionRepository.save(question);
         attachKeywords(saved, request.keywords());
 
+        log.info("createQuestion success - questionId: {}", saved.getId());
         return toDetailResponse(saved);
     }
 
     @Override
     @Transactional
     public QuestionDetailResponse updateQuestion(Long questionId, QuestionUpdateRequest request) {
+        int keywordCount = request.keywords() == null ? 0 : request.keywords().size();
+        log.info("updateQuestion - questionId: {}, hasContent: {}, type: {}, category: {}, useYn: {}, keywordCount: {}",
+                questionId, request.content() != null, request.type(), request.category(), request.useYn(), keywordCount);
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new QuestionNotFoundException(questionId));
 
@@ -132,22 +163,28 @@ public class QuestionServiceImpl implements QuestionService {
             replaceKeywords(question, request.keywords());
         }
 
+        log.info("updateQuestion success - questionId: {}", questionId);
         return toDetailResponse(question);
     }
 
     @Override
     @Transactional
     public void deleteQuestion(Long questionId) {
+        log.info("deleteQuestion - questionId: {}", questionId);
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new QuestionNotFoundException(questionId));
 
         if (question.isUseYn()) {
             question.delete();
+            log.info("deleteQuestion success - questionId: {}, deleted: true", questionId);
+            return;
         }
+        log.info("deleteQuestion skipped - questionId: {}, reason: already inactive", questionId);
     }
 
     @Override
     public QuestionKeywordListResponse getQuestionKeywords(Long questionId) {
+        log.debug("getQuestionKeywords - questionId: {}", questionId);
         validateQuestionExists(questionId);
         List<QuestionHashtag> tags = questionHashtagRepository.findKeywordNamesByQuestionId(questionId);
 
@@ -155,11 +192,14 @@ public class QuestionServiceImpl implements QuestionService {
             .map(questionHashtag -> questionHashtag.getHashtag().getName())
             .toList();
 
+        log.debug("getQuestionKeywords success - questionId: {}, count: {}", questionId, keywords.size());
         return new QuestionKeywordListResponse(keywords);
     }
 
     @Override
     public QuestionKeywordCheckResponse checkQuestionKeywords(Long questionId, List<String> keywords) {
+        int keywordCount = keywords == null ? 0 : keywords.size();
+        log.debug("checkQuestionKeywords - questionId: {}, keywordCount: {}", questionId, keywordCount);
         validateQuestionExists(questionId);
         List<KeywordMatchResponse> results = keywords.stream()
                 .map(keyword -> new KeywordMatchResponse(
@@ -168,30 +208,47 @@ public class QuestionServiceImpl implements QuestionService {
                                 .existsByQuestion_IdAndHashtag_NameIgnoreCase(questionId, keyword)
                 ))
                 .toList();
+        long includedCount = results.stream()
+                .filter(KeywordMatchResponse::included)
+                .count();
+        log.debug("checkQuestionKeywords success - questionId: {}, includedCount: {}",
+                questionId, includedCount);
         return new QuestionKeywordCheckResponse(results);
     }
 
     @Override
     public QuestionCategoryListResponse getQuestionCategories() {
-        Map<String, String> categories = Arrays.stream(QuestionCategory.values())
+        log.debug("getQuestionCategories");
+        Map<String, Map<String, String>> categories = EXPOSED_TYPES.stream()
                 .collect(Collectors.toMap(
-                        QuestionCategory::name,
-                        QuestionCategory::getCategory,
+                        QuestionType::name,
+                        type -> Arrays.stream(QuestionCategory.values())
+                                .filter(category -> category.supports(type))
+                                .collect(Collectors.toMap(
+                                        QuestionCategory::name,
+                                        QuestionCategory::getCategory,
+                                        (existing, ignored) -> existing,
+                                        LinkedHashMap::new
+                                )),
                         (existing, ignored) -> existing,
                         LinkedHashMap::new
                 ));
+        log.debug("getQuestionCategories success - typeGroups: {}", categories.size());
         return new QuestionCategoryListResponse(categories);
     }
 
     @Override
     public QuestionTypeListResponse getQuestionTypes() {
+        log.debug("getQuestionTypes");
         Map<String, String> types = Arrays.stream(QuestionType.values())
+                .filter(EXPOSED_TYPES::contains)
                 .collect(Collectors.toMap(
                         QuestionType::name,
                         QuestionType::getType,
                         (existing, ignored) -> existing,
                         LinkedHashMap::new
                 ));
+        log.debug("getQuestionTypes success - count: {}", types.size());
         return new QuestionTypeListResponse(types);
     }
 
@@ -289,9 +346,14 @@ public class QuestionServiceImpl implements QuestionService {
         if (!mappings.isEmpty()) {
             questionHashtagRepository.saveAll(mappings);
         }
+
+        log.debug("attachKeywords success - questionId: {}, requested: {}, mapped: {}",
+                question.getId(), keywords.size(), mappings.size());
     }
 
     private void replaceKeywords(Question question, List<String> keywords) {
+        log.debug("replaceKeywords - questionId: {}, keywordCount: {}",
+                question.getId(), keywords == null ? 0 : keywords.size());
         questionHashtagRepository.deleteByQuestion_Id(question.getId());
         if (keywords == null || keywords.isEmpty()) {
             return;

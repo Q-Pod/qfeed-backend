@@ -33,7 +33,7 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
             AND q.type = COALESCE(:questionType, q.type)
             AND a.createdAt >= :dateFrom
             AND a.createdAt <= :dateTo
-            AND (:cursorCreatedAt IS NULL OR a.createdAt < :cursorCreatedAt
+            AND (a.createdAt < :cursorCreatedAt
                  OR (a.createdAt = :cursorCreatedAt AND a.id < :cursorAnswerId))
             ORDER BY a.createdAt DESC, a.id DESC
             """)

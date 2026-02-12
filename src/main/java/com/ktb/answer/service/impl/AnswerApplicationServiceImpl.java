@@ -32,8 +32,6 @@ import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AnswerApplicationService;
 import com.ktb.answer.service.AnswerDomainService;
 import com.ktb.answer.service.ImmediateFeedbackService;
-import com.ktb.auth.domain.UserAccount;
-import com.ktb.auth.service.UserAccountService;
 import com.ktb.answer.exception.AnswerListInvalidInputException;
 import com.ktb.file.exception.FileAlreadyDeletedException;
 import com.ktb.file.exception.FileExtensionNotAllowedException;
@@ -50,10 +48,8 @@ import com.ktb.metric.repository.AnswerMetricRepository;
 import com.ktb.question.domain.Question;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
-import com.ktb.question.dto.QuestionDetailResponse;
 import com.ktb.question.exception.QuestionDisabledException;
 import com.ktb.question.exception.QuestionNotFoundException;
-import com.ktb.question.service.QuestionService;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -74,7 +70,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class AnswerApplicationServiceImpl implements AnswerApplicationService {
-
     private final AnswerRepository answerRepository;
     private final AnswerDomainService answerDomainService;
     private final ImmediateFeedbackService immediateFeedbackService;
@@ -111,25 +106,25 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
         Slice<Answer> answers = cursorPayload == null
                 ? answerRepository.findByAccountIdWithFiltersNoCursor(
-                        accountId,
-                        type,
-                        category,
-                        questionType,
-                        from,
-                        to,
-                        pageRequest
-                )
+                accountId,
+                type,
+                category,
+                questionType,
+                from,
+                to,
+                pageRequest
+        )
                 : answerRepository.findByAccountIdWithFilters(
-                        accountId,
-                        type,
-                        category,
-                        questionType,
-                        from,
-                        to,
-                        cursorPayload.lastCreatedAt(),
-                        cursorPayload.lastAnswerId(),
-                        pageRequest
-                );
+                accountId,
+                type,
+                category,
+                questionType,
+                from,
+                to,
+                cursorPayload.lastCreatedAt(),
+                cursorPayload.lastAnswerId(),
+                pageRequest
+        );
 
         return toAnswerListResponse(answers, resolvedLimit);
     }
@@ -154,10 +149,10 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         AbuseGuardResult abuseResult = abuseGuard.check(abuseContext);
 
         Answer answer = answerRepository.save(answerDomainService.createAnswer(
-            accountId,
-            command.questionId(),
-            command.answerText(),
-            command.answerType()
+                accountId,
+                command.questionId(),
+                command.answerText(),
+                command.answerType()
         ));
 
         ImmediateFeedbackResult immediateFeedback = immediateFeedbackService.evaluate(
@@ -180,24 +175,24 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
     private void saveAnswerHashtags(Answer answer, ImmediateFeedbackResult feedback) {
         List<AnswerHashtag> answerHashtags = feedback.keywords().stream()
-            .map(keywordResult -> {
-                Hashtag hashtag = hashtagRepository.findById(keywordResult.keywordId())
-                    .orElseThrow(() -> new HashtagNotFoundException(keywordResult.keywordId()));
+                .map(keywordResult -> {
+                    Hashtag hashtag = hashtagRepository.findById(keywordResult.keywordId())
+                            .orElseThrow(() -> new HashtagNotFoundException(keywordResult.keywordId()));
 
-                return AnswerHashtag.create(
-                    answer,
-                    hashtag,
-                    keywordResult.included()
-                );
-            })
-            .toList();
+                    return AnswerHashtag.create(
+                            answer,
+                            hashtag,
+                            keywordResult.included()
+                    );
+                })
+                .toList();
 
         answerHashtagRepository.saveAll(answerHashtags);
 
         log.debug("AnswerHashtags saved - answerId: {}, total: {}, included: {}",
-                  answer.getId(),
-                  answerHashtags.size(),
-                  answerHashtags.stream().filter(ah -> ah.isIncluded()).count());
+                answer.getId(),
+                answerHashtags.size(),
+                answerHashtags.stream().filter(ah -> ah.isIncluded()).count());
     }
 
     @Override
@@ -226,7 +221,7 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
 
     @Override
     public AnswerDetailResult getDetail(Long accountId, Long answerId, AnswerDetailQuery query)
-        throws AnswerNotFoundException, AnswerAccessDeniedException {
+            throws AnswerNotFoundException, AnswerAccessDeniedException {
 
         log.debug("Retrieving answer detail for answerId: {}, accountId: {}", answerId, accountId);
 
@@ -238,20 +233,20 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         answerDomainService.validateOwnership(answer, accountId);
 
         AnswerContentResult answerContent = new AnswerContentResult(
-            answer.getContent(),
-            null,  // audioUrl (MVP V2: 파일 연동 시 구현)
-            null,  // videoUrl (MVP V2: 파일 연동 시 구현)
-            answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString()
+                answer.getContent(),
+                null,  // audioUrl (MVP V2: 파일 연동 시 구현)
+                null,  // videoUrl (MVP V2: 파일 연동 시 구현)
+                answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString()
         );
 
         QuestionSummary questionSummary = null;
         if (query.includeQuestion()) {
             Question question = answer.getQuestion();
             questionSummary = new QuestionSummary(
-                question.getId(),
-                question.getContent(),
-                question.getCategory().name(),
-                question.getType().name()
+                    question.getId(),
+                    question.getContent(),
+                    question.getCategory().name(),
+                    question.getType().name()
             );
         }
 
@@ -266,13 +261,13 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         }
 
         return new AnswerDetailResult(
-            answer.getId(),
-            answer.getStatus(),
-            answer.getType(),
-            questionSummary,
-            answerContent,
-            immediateFeedback,
-            aiFeedback
+                answer.getId(),
+                answer.getStatus(),
+                answer.getType(),
+                questionSummary,
+                answerContent,
+                immediateFeedback,
+                aiFeedback
         );
     }
 
@@ -280,12 +275,12 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         List<AnswerHashtag> answerHashtags = answerHashtagRepository.findByAnswerIdWithHashtag(answerId);
 
         List<KeywordCheckResult> keywords = answerHashtags.stream()
-            .map(ah -> new KeywordCheckResult(
-                ah.getHashtag().getId(),
-                ah.getHashtag().getName(),
-                ah.isIncluded()
-            ))
-            .toList();
+                .map(ah -> new KeywordCheckResult(
+                        ah.getHashtag().getId(),
+                        ah.getHashtag().getName(),
+                        ah.isIncluded()
+                ))
+                .toList();
 
         return new ImmediateFeedbackResult(keywords);
     }
@@ -365,8 +360,11 @@ public class AnswerApplicationServiceImpl implements AnswerApplicationService {
         if (questionType == null) {
             return;
         }
-        if (questionType != QuestionType.CS) {
-            throw new AnswerListInvalidInputException("questionType is only supported for [CS, SYSTEM_DESIGN, PORTFOLIO]");
+
+        if (questionType == QuestionType.PORTFOLIO) {
+            throw new AnswerListInvalidInputException(
+                    "questionType is only supported for [CS, SYSTEM_DESIGN]"
+            );
         }
     }
 
