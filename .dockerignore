@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.iml
+*.swp
+*.swo
+
+# Build
+build/
+.gradle/
+out/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+
+# Documentation
+docs/
+*.md
+
+# Test
+src/test/
+
+# CI/CD
+.github/
+
+# Docker
+Dockerfile
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+gradlew.bat
