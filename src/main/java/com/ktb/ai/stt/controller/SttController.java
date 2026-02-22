@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "STT API", description = "Speech-to-Text 변환 API")
 @RestController
-@RequestMapping("/ai/stt")
+@RequestMapping("/api/ai/stt")
 @RequiredArgsConstructor
 public class SttController {
 
