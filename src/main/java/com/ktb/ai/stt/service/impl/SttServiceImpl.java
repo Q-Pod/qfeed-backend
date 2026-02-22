@@ -15,7 +15,7 @@ public class SttServiceImpl implements SttService {
     private final SttClient sttClient;
 
     @Override
-    public String convertToText(Long userId, Long sessionId, String audioUrl) {
+    public String convertToText(Long userId, String sessionId, String audioUrl) {
         log.debug("Converting audio to text - userId: {}, sessionId: {}, audioUrl: {}",
                 userId, sessionId, audioUrl);
 

@@ -21,5 +21,5 @@ public interface SttService {
      * @throws com.ktb.ai.stt.exception.AudioUnprocessableException   오디오 처리 불가
      * @throws com.ktb.ai.stt.exception.SttTimeoutException           변환 시간 초과
      */
-    String convertToText(Long userId, Long sessionId, String audioUrl);
+    String convertToText(Long userId, String sessionId, String audioUrl);
 }

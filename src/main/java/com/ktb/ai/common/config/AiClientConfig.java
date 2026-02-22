@@ -7,6 +7,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+/**
+ * AI 서버 호출용 RestClient 공통 설정.
+ */
 @Configuration
 public class AiClientConfig {
 

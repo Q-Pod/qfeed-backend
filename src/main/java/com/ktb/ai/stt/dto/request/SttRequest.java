@@ -14,8 +14,12 @@ public record SttRequest(
         Long userId,
 
         @JsonProperty("session_id")
-        @Schema(description = "면접 세션 식별자", example = "123", requiredMode = Schema.RequiredMode.REQUIRED)
-        Long sessionId,
+        @Schema(
+                description = "면접 세션 식별자(UUID)",
+                example = "550e8400-e29b-41d4-a716-446655440000",
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED
+        )
+        String sessionId,
 
         @JsonProperty("audio_url")
         @Schema(description = "S3에 저장된 음성 파일 주소",

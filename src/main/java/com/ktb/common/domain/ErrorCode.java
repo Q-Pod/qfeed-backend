@@ -53,6 +53,13 @@ public enum ErrorCode {
     ANSWER_INVALID_STATUS_TRANSITION(400, "A005", "허용되지 않는 답변 상태 전이입니다"),
     ANSWER_TYPE_REQUIRED(400, "A006", "답변 유형은 필수입니다"),
 
+    // ==================== Interview Session 관련 ====================
+    INTERVIEW_SESSION_NOT_FOUND(404, "IS001", "인터뷰 세션을 찾을 수 없습니다"),
+    INTERVIEW_SESSION_ACCESS_DENIED(403, "IS002", "인터뷰 세션 접근 권한이 없습니다"),
+    INTERVIEW_SESSION_EXPIRED(409, "IS003", "인터뷰 세션이 만료되었습니다"),
+    INTERVIEW_SESSION_INVALID_STATE(409, "IS004", "인터뷰 세션 상태가 올바르지 않습니다"),
+    INTERVIEW_SESSION_INVALID_INPUT(400, "IS005", "인터뷰 요청 입력값이 올바르지 않습니다"),
+
     // ==================== File 관련 ====================
     INVALID_FILE_FORMAT(400, "F001", "지원하지 않는 파일 형식입니다"),
     FILE_NOT_FOUND(404, "F002", "파일을 찾을 수 없습니다"),
@@ -70,7 +77,7 @@ public enum ErrorCode {
     // ==================== Metric 관련 ====================
     METRIC_NAME_REQUIRED(400, "M001", "평가 지표 이름은 필수입니다"),
     METRIC_NAME_TOO_LONG(400, "M002", "평가 지표 이름은 100자를 초과할 수 없습니다"),
-    METRIC_SCORE_INVALID_RANGE(400, "M003", "평가 점수는 0-100 사이여야 합니다"),
+    METRIC_SCORE_INVALID_RANGE(400, "M003", "평가 점수는 1-5 사이여야 합니다"),
     METRIC_NOT_FOUND(404, "M004", "평가 지표를 찾을 수 없습니다"),
 
     // ==================== Search 관련 ====================
@@ -90,6 +97,7 @@ public enum ErrorCode {
     AI_FEEDBACK_INTERNAL_SERVER_ERROR(422, "AI010", "AI 서버 내부 오류가 발생했습니다"),
     AI_FEEDBACK_LLM_SERVICE_UNAVAILABLE(422, "AI011", "LLM 서비스 연결에 실패했습니다"),
     AI_FEEDBACK_SERVICE_TEMPORARILY_UNAVAILABLE(422, "AI012", "AI 피드백 서비스를 일시적으로 사용할 수 없습니다"),
+    AI_FEEDBACK_DEPENDENCY_FAILED(502, "AI013", "AI 피드백 의존 서비스 호출에 실패했습니다"),
 
     // ==================== STT 관련 ====================
     STT_SERVICE_ERROR(422, "STT001", "STT 서비스 오류가 발생했습니다"),
@@ -99,6 +107,14 @@ public enum ErrorCode {
     AUDIO_UNPROCESSABLE(422, "STT005", "오디오 파일을 처리할 수 없습니다"),
     STT_TIMEOUT(408, "STT006", "STT 변환 시간이 초과되었습니다"),
     STT_REQUEST_FAILED(422, "STT007", "STT 요청에 실패했습니다"),
+
+    // ==================== TTS 관련 ====================
+    TTS_SERVICE_ERROR(500, "TTS001", "TTS 서비스 오류가 발생했습니다"),
+    TTS_API_KEY_INVALID(401, "TTS002", "TTS API 키가 유효하지 않습니다"),
+    TTS_VOICE_NOT_FOUND(404, "TTS003", "TTS 음성 모델을 찾을 수 없습니다"),
+    TTS_TIMEOUT(408, "TTS004", "TTS 변환 시간이 초과되었습니다"),
+    TTS_RATE_LIMIT_EXCEEDED(429, "TTS005", "TTS 요청 한도를 초과했습니다"),
+    TTS_DEPENDENCY_FAILED(502, "TTS006", "TTS 의존 서비스 호출에 실패했습니다"),
 
     // ==================== Abuse 관련 ====================
     ABUSE_RATE_LIMIT_EXCEEDED(429, "ABUSE001", "요청 속도 제한을 초과했습니다"),

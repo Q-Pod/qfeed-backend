@@ -77,10 +77,15 @@ ai:
   feedback:
     base-url: ${AI_FEEDBACK_BASE_URL}
     endpoint: /ai/interview/feedback/request
+    follow-up-endpoint: /ai/interview/follow-up/questions
     timeout: 60000  # 60초
   stt:
     base-url: ${AI_STT_BASE_URL}
     endpoint: /ai/stt
+    timeout: 60000  # 60초
+  tts:
+    base-url: ${AI_TTS_BASE_URL:${AI_STT_BASE_URL:http://localhost:8000}}
+    endpoint: /ai/tts
     timeout: 60000  # 60초
 
 management:
@@ -155,3 +160,12 @@ abuse:
       enabled: ${ABUSE_GUARD_QUALITY_SCORE_ENABLED:true}
     quota:
       enabled: ${ABUSE_GUARD_QUOTA_ENABLED:true}
+
+interview:
+  session:
+    practice-ttl: PT10M
+    real-ttl: PT90M
+    cleanup-interval-ms: 300000
+    store:
+      history-key-prefix: interview:session
+      feedback-key-prefix: interview:feedback

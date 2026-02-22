@@ -11,8 +11,8 @@ public record SttResponse(
         Long userId,
 
         @JsonProperty("session_id")
-        @Schema(description = "면접 세션 식별자", example = "123")
-        Long sessionId,
+        @Schema(description = "면접 세션 식별자(UUID)", example = "550e8400-e29b-41d4-a716-446655440000")
+        String sessionId,
 
         @JsonProperty("text")
         @Schema(description = "변환된 텍스트",
