@@ -52,11 +52,16 @@ jwt:
 ai:
   feedback:
     base-url: http://localhost:8000
-    endpoint: /api/v1/feedback/evaluate
+    endpoint: /ai/interview/feedback/request
+    follow-up-endpoint: /ai/interview/follow-up/questions
     timeout: 30000
   stt:
-    base-url: http://localhost:8001
+    base-url: http://localhost:8000
     endpoint: /ai/stt
+    timeout: 60000
+  tts:
+    base-url: http://localhost:8000
+    endpoint: /ai/tts
     timeout: 60000
 
 oauth:

@@ -32,14 +32,18 @@ public class AnswerMetric extends BaseTimeEntity {
     @Column(name = "answer_metric_score", nullable = false)
     private int score;
 
+    @Column(name = "answer_metric_comment", columnDefinition = "TEXT")
+    private String comment;
+
     private final static int MIN_SCORE = 1;
     private final static int MAX_SCORE = 5;
 
     @Builder
-    private AnswerMetric(Answer answer, Metric metric, int score) {
+    private AnswerMetric(Answer answer, Metric metric, int score, String comment) {
         validateScore(score);
         this.id = new AnswerMetricId(answer, metric);
         this.score = score;
+        this.comment = comment;
     }
 
     public static AnswerMetric create(Answer answer, Metric metric, int score) {
@@ -47,12 +51,26 @@ public class AnswerMetric extends BaseTimeEntity {
                 .answer(answer)
                 .metric(metric)
                 .score(score)
+                .comment(null)
+                .build();
+    }
+
+    public static AnswerMetric createWithComment(Answer answer, Metric metric, int score, String comment) {
+        return AnswerMetric.builder()
+                .answer(answer)
+                .metric(metric)
+                .score(score)
+                .comment(comment)
                 .build();
     }
 
     public void updateScore(int score) {
         validateScore(score);
         this.score = score;
+    }
+
+    public void updateComment(String comment) {
+        this.comment = comment;
     }
 
     private void validateScore(int score) {

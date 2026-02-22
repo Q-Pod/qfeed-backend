@@ -3,6 +3,7 @@ package com.ktb.question.repository;
 import com.ktb.question.domain.Question;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
+import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -53,12 +54,53 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
              WHERE question_id >= (
                  SELECT floor(random() * (max(question_id) - min(question_id) + 1)) + min(question_id)
                  FROM question
-                 WHERE use_yn = true AND deleted_at IS NULL 
+                 WHERE use_yn = true AND deleted_at IS NULL
              )
              AND use_yn = true
              AND deleted_at IS NULL
              ORDER BY question_id
              LIMIT 1
             """, nativeQuery = true)
-    java.util.Optional<Long> findRandomActiveId();
+    Optional<Long> findRandomActiveId();
+
+    @Query(value = """
+            SELECT q.*
+            FROM question q
+            WHERE q.question_id >= (
+                SELECT floor(random() * (max(question_id) - min(question_id) + 1)) + min(question_id)
+                FROM question
+                WHERE use_yn = true
+                  AND deleted_at IS NULL
+                  AND question_type_cd = :questionType
+            )
+              AND q.use_yn = true
+              AND q.deleted_at IS NULL
+              AND q.question_type_cd = :questionType
+            ORDER BY q.question_id
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Question> findRandomActiveByType(@Param("questionType") String questionType);
+
+    @Query(value = """
+            SELECT q.*
+            FROM question q
+            WHERE q.question_id >= (
+                SELECT floor(random() * (max(question_id) - min(question_id) + 1)) + min(question_id)
+                FROM question
+                WHERE use_yn = true
+                  AND deleted_at IS NULL
+                  AND question_type_cd = :questionType
+                  AND question_ctg = :category
+            )
+              AND q.use_yn = true
+              AND q.deleted_at IS NULL
+              AND q.question_type_cd = :questionType
+              AND q.question_ctg = :category
+            ORDER BY q.question_id
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<Question> findRandomActiveByTypeAndCategory(
+            @Param("questionType") String questionType,
+            @Param("category") String category
+    );
 }
