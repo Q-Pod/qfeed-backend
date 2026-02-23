@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/ai/stt")
 @RequiredArgsConstructor
+@Slf4j
 public class SttController {
 
     private static final String MESSAGE_STT_CONVERTED = "speech_to_text_success";
@@ -39,11 +41,14 @@ public class SttController {
     public ResponseEntity<ApiResponse<SttResponse>> convert(
             @Valid @RequestBody SttRequest request
     ) {
+        log.info("STT convert request - userId={}, sessionId={}", request.userId(), request.sessionId());
         String text = sttService.convertToText(
                 request.userId(),
                 request.sessionId(),
                 request.audioUrl()
         );
+        log.info("STT convert response ready - userId={}, sessionId={}, textLength={}",
+                request.userId(), request.sessionId(), text == null ? 0 : text.length());
 
         return ResponseEntity.ok(
                 new ApiResponse<>(MESSAGE_STT_CONVERTED,

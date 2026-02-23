@@ -1,7 +1,7 @@
 package com.ktb.interview.session.repository.impl;
 
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
 import com.ktb.interview.session.config.InterviewSessionStorePolicy;
+import com.ktb.interview.session.domain.InterviewSessionFeedback;
 import com.ktb.interview.session.repository.InterviewSessionFeedbackRepository;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
  * Redis 기반 InterviewSessionFeedbackRepository 스켈레톤.
  *
  * TODO(redis 전환 시):
- * - RedisTemplate<String, InterviewFeedbackDataResponse> 주입
+ * - RedisTemplate<String, InterviewSessionFeedback> 주입
  * - key 설계: interview:feedback:{sessionId}
  * - 세션 TTL과 동일하게 expire 설정
  * - delete/save를 pipeline 처리로 최적화
@@ -45,7 +45,7 @@ public class RedisInterviewSessionFeedbackRepository implements InterviewSession
      * Redis 전환 전에는 정책 기반 키를 사용해 인메모리에 피드백을 저장합니다.
      */
     @Override
-    public void save(String sessionId, InterviewFeedbackDataResponse feedback, LocalDateTime expiresAt) {
+    public void save(String sessionId, InterviewSessionFeedback feedback, LocalDateTime expiresAt) {
         String key = storePolicy.feedbackKey(sessionId);
         LocalDateTime effectiveExpiresAt = expiresAt == null
                 ? storePolicy.fallbackFeedbackExpiresAt(LocalDateTime.now())
@@ -59,7 +59,7 @@ public class RedisInterviewSessionFeedbackRepository implements InterviewSession
      * 세션 ID로 피드백을 조회하고 만료된 데이터는 제거합니다.
      */
     @Override
-    public Optional<InterviewFeedbackDataResponse> findBySessionId(String sessionId) {
+    public Optional<InterviewSessionFeedback> findBySessionId(String sessionId) {
         String key = storePolicy.feedbackKey(sessionId);
         StoredFeedback stored = feedbackByKey.get(key);
         if (stored == null) {
@@ -81,7 +81,7 @@ public class RedisInterviewSessionFeedbackRepository implements InterviewSession
     }
 
     private record StoredFeedback(
-            InterviewFeedbackDataResponse feedback,
+            InterviewSessionFeedback feedback,
             LocalDateTime expiresAt
     ) {
         /**

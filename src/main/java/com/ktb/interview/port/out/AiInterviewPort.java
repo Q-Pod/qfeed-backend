@@ -1,9 +1,9 @@
 package com.ktb.interview.port.out;
 
-import com.ktb.answer.dto.ai.InterviewFeedbackApiResponse;
-import com.ktb.answer.dto.ai.InterviewFeedbackRequest;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionApiResponse;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionRequest;
+import com.ktb.interview.dto.ai.InterviewFeedbackApiResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackRequest;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
 
 /**
  * 인터뷰 도메인이 AI 서버와 통신하기 위한 outbound port.

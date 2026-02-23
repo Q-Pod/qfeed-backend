@@ -8,11 +8,13 @@ import com.ktb.common.exception.BusinessException;
  */
 public class InterviewSessionNotFoundException extends BusinessException {
 
+    private static final String MESSAGE_TEMPLATE = "%s sessionId=%s";
+
     /**
      * 세션 미존재 오류 메시지를 구성합니다.
      */
     public InterviewSessionNotFoundException(String sessionId) {
         super(ErrorCode.INTERVIEW_SESSION_NOT_FOUND,
-                ErrorCode.INTERVIEW_SESSION_NOT_FOUND.getMessage() + " sessionId=" + sessionId);
+                String.format(MESSAGE_TEMPLATE, ErrorCode.INTERVIEW_SESSION_NOT_FOUND.getMessage(), sessionId));
     }
 }

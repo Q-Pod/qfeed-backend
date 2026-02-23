@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/ai/tts")
 @RequiredArgsConstructor
+@Slf4j
 public class TtsController {
 
     private static final String MULTIPART_MIXED = "multipart/mixed";
@@ -46,6 +48,8 @@ public class TtsController {
                     content = @Content(schema = @Schema(implementation = com.ktb.common.dto.CommonErrorResponse.class)))
     })
     public ResponseEntity<byte[]> convert(@Valid @RequestBody TtsRequest request) {
+        log.info("TTS convert request - userId={}, sessionId={}, textLength={}",
+                request.userId(), request.sessionId(), request.text() == null ? 0 : request.text().length());
         TtsMultipartResponse response = ttsService.convertToSpeech(
                 request.userId(),
                 request.sessionId(),
@@ -61,10 +65,13 @@ public class TtsController {
         if (response.contentDisposition() != null && !response.contentDisposition().isBlank()) {
             headers.add(HttpHeaders.CONTENT_DISPOSITION, response.contentDisposition());
         }
+        log.info("TTS convert response ready - userId={}, sessionId={}, payloadBytes={}, contentType={}",
+                request.userId(), request.sessionId(),
+                response.payload() == null ? 0 : response.payload().length,
+                response.contentType());
 
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(response.payload());
     }
 }
-

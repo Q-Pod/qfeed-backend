@@ -129,6 +129,8 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
             String cursor,
             Integer limit
     ) {
+        log.info("getAnswerList - accountId={}, type={}, category={}, questionType={}, dateFrom={}, dateTo={}, cursorProvided={}, limit={}",
+                accountId, type, category, questionType, dateFrom, dateTo, cursor != null && !cursor.isBlank(), limit);
         validateQuestionType(questionType);
         LocalDateRange dateRange = resolveDateRange(dateFrom, dateTo);
         int resolvedLimit = resolveLimit(limit);
@@ -159,12 +161,15 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
                 cursorPayload.lastAnswerId(),
                 pageRequest
         );
-
+        log.info("getAnswerList completed - accountId={}, fetchedSize={}, hasNext={}, resolvedLimit={}",
+                accountId, answers.getContent().size(), answers.hasNext(), resolvedLimit);
         return toAnswerListResponse(answers, resolvedLimit);
     }
 
     @Override
     public AnswerDetailResult getDetail(Long accountId, Long answerId, AnswerDetailQuery query) {
+        log.info("getAnswerDetail - accountId={}, answerId={}, includeQuestion={}, includeImmediateFeedback={}, includeFeedback={}",
+                accountId, answerId, query.includeQuestion(), query.includeImmediateFeedback(), query.includeFeedback());
         Answer answer = answerRepository.findByIdWithQuestion(answerId);
         if (answer == null) {
             throw new AnswerNotFoundException(answerId);
@@ -199,7 +204,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
             aiFeedback = loadAiFeedback(answer);
         }
 
-        return new AnswerDetailResult(
+        AnswerDetailResult result = new AnswerDetailResult(
                 answer.getId(),
                 answer.getStatus(),
                 answer.getType(),
@@ -208,6 +213,9 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
                 immediateFeedback,
                 aiFeedback
         );
+        log.info("getAnswerDetail completed - accountId={}, answerId={}, status={}",
+                accountId, answerId, answer.getStatus());
+        return result;
     }
 
     private ImmediateFeedbackResult loadImmediateFeedback(Long answerId) {
@@ -293,6 +301,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
             }
             return payload;
         } catch (IllegalArgumentException | IOException e) {
+            log.warn("Invalid answer list cursor - reason={}", e.getMessage());
             throw new AnswerListInvalidInputException("invalid cursor", e);
         }
     }

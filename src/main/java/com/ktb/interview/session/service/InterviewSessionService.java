@@ -1,8 +1,5 @@
 package com.ktb.interview.session.service;
 
-import com.ktb.answer.domain.AnswerType;
-import com.ktb.answer.domain.TurnType;
-import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.question.domain.QuestionType;
 
@@ -12,16 +9,14 @@ import com.ktb.question.domain.QuestionType;
 public interface InterviewSessionService {
 
     /**
-     * 신규 인터뷰 세션을 생성합니다.
+     * 연습 모드 세션을 생성합니다.
      */
-    InterviewSession createSession(
-            Long accountId,
-            AnswerType interviewType,
-            QuestionType questionType,
-            InterviewQuestionSnapshot firstQuestion,
-            TurnType initialTurnType,
-            Integer initialTopicId
-    );
+    InterviewSession createPracticeSession(Long accountId, QuestionType questionType);
+
+    /**
+     * 실전 모드 세션을 생성합니다.
+     */
+    InterviewSession createRealSession(Long accountId, QuestionType questionType);
 
     /**
      * 세션을 조회하고 TTL을 갱신합니다.
