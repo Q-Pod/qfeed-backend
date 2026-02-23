@@ -1,5 +1,6 @@
 package com.ktb.answer.dto.ai;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
@@ -10,9 +11,11 @@ public record InterviewFeedbackDataResponse(
         Long answerId,
 
         @JsonProperty("user_id")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         Long userId,
 
         @JsonProperty("question_id")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         Long questionId,
 
         @JsonProperty("session_id")
@@ -73,6 +76,25 @@ public record InterviewFeedbackDataResponse(
                 answerId,
                 userId,
                 questionId,
+                sessionId,
+                status,
+                badCaseFeedback,
+                metrics,
+                keywordResult,
+                topicsFeedback,
+                overallFeedback,
+                nextQuestion,
+                nextTurnType,
+                nextTopicId,
+                isFinal
+        );
+    }
+
+    public InterviewFeedbackDataResponse withoutIdentifiers() {
+        return new InterviewFeedbackDataResponse(
+                answerId,
+                null,
+                null,
                 sessionId,
                 status,
                 badCaseFeedback,
