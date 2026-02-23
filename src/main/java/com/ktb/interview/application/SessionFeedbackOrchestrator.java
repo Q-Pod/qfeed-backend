@@ -1,7 +1,7 @@
 package com.ktb.interview.application;
 
 import com.ktb.answer.domain.Answer;
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.hashtag.domain.QuestionHashtag;

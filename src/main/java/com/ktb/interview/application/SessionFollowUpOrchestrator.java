@@ -1,7 +1,7 @@
 package com.ktb.interview.application;
 
-import com.ktb.answer.dto.ai.InterviewBadCaseFeedbackResponse;
-import com.ktb.answer.dto.ai.InterviewHistoryRequest;
+import com.ktb.interview.dto.ai.InterviewBadCaseFeedbackResponse;
+import com.ktb.interview.dto.ai.InterviewHistoryRequest;
 import com.ktb.interview.session.domain.InterviewSession;
 import java.util.List;
 

@@ -1,6 +1,6 @@
 package com.ktb.interview.session.repository.impl;
 
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
+import com.ktb.interview.session.domain.InterviewSessionFeedback;
 import com.ktb.interview.session.repository.InterviewSessionFeedbackRepository;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -20,7 +20,7 @@ public class InMemoryInterviewSessionFeedbackRepository implements InterviewSess
      * 세션 ID 기준으로 최종 피드백과 만료 시각을 저장합니다.
      */
     @Override
-    public void save(String sessionId, InterviewFeedbackDataResponse feedback, LocalDateTime expiresAt) {
+    public void save(String sessionId, InterviewSessionFeedback feedback, LocalDateTime expiresAt) {
         feedbackBySessionId.put(sessionId, new StoredFeedback(feedback, expiresAt));
     }
 
@@ -28,7 +28,7 @@ public class InMemoryInterviewSessionFeedbackRepository implements InterviewSess
      * 세션 ID로 피드백을 조회하고 만료 시 즉시 제거합니다.
      */
     @Override
-    public Optional<InterviewFeedbackDataResponse> findBySessionId(String sessionId) {
+    public Optional<InterviewSessionFeedback> findBySessionId(String sessionId) {
         StoredFeedback stored = feedbackBySessionId.get(sessionId);
         if (stored == null) {
             return Optional.empty();
@@ -49,7 +49,7 @@ public class InMemoryInterviewSessionFeedbackRepository implements InterviewSess
     }
 
     private record StoredFeedback(
-            InterviewFeedbackDataResponse feedback,
+            InterviewSessionFeedback feedback,
             LocalDateTime expiresAt
     ) {
         /**

@@ -5,19 +5,21 @@ import com.ktb.ai.feedback.exception.AiFeedbackRequestRejectedException;
 import com.ktb.ai.feedback.exception.AiFeedbackRetryableException;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionApiResponse;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionDataResponse;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionRequest;
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
-import com.ktb.answer.dto.request.InterviewSessionCreateRequest;
-import com.ktb.answer.dto.response.session.InterviewHistoryResponse;
-import com.ktb.answer.dto.response.session.InterviewSessionCreateResponse;
-import com.ktb.answer.dto.response.session.InterviewSessionStateResponse;
-import com.ktb.answer.dto.response.session.SessionFeedbackFailedResponse;
-import com.ktb.answer.dto.response.session.SessionFeedbackPendingResponse;
+import com.ktb.interview.application.mapper.InterviewSessionFeedbackMapper;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionDataResponse;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
+import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
+import com.ktb.interview.dto.request.InterviewSessionCreateRequest;
+import com.ktb.interview.dto.response.session.InterviewHistoryResponse;
+import com.ktb.interview.dto.response.session.InterviewSessionCreateResponse;
+import com.ktb.interview.dto.response.session.InterviewSessionStateResponse;
+import com.ktb.interview.dto.response.session.SessionFeedbackFailedResponse;
+import com.ktb.interview.dto.response.session.SessionFeedbackPendingResponse;
 import com.ktb.interview.application.InterviewSessionManagementService;
 import com.ktb.interview.port.out.AiInterviewPort;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
+import com.ktb.interview.session.domain.InterviewSessionFeedback;
 import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.domain.InterviewSessionStatus;
@@ -29,8 +31,10 @@ import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -38,7 +42,17 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InterviewSessionManagementServiceImpl implements InterviewSessionManagementService {
+
+    private static final String ERROR_PENDING_STATE_REQUIRED = "session is not in pending state";
+    private static final String ERROR_FAILED_STATE_REQUIRED = "session is not failed";
+    private static final String ERROR_FEEDBACK_NOT_COMPLETED = "session feedback is not completed yet";
+    private static final String ERROR_UNSUPPORTED_INTERVIEW_TYPE =
+            "interviewType supports only PRACTICE_INTERVIEW or REAL_INTERVIEW";
+    private static final String ERROR_CATEGORY_NOT_SUPPORTED_TEMPLATE =
+            "category is not supported for questionType. category=%s, questionType=%s";
+    private static final String ERROR_FIRST_QUESTION_GENERATION_FAILED = "failed to generate first question from AI";
 
     private final InterviewSessionService interviewSessionService;
     private final InterviewSessionFeedbackRepository feedbackRepository;
@@ -49,17 +63,17 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
      */
     @Override
     public InterviewSessionCreateResponse createSession(Long accountId, InterviewSessionCreateRequest request) {
+        log.info("createSession - accountId={}, interviewType={}, questionType={}, category={}",
+                accountId, request.interviewType(), request.questionType(), request.category());
         validateSessionCreateRequest(request);
 
         if (request.interviewType() == AnswerType.PRACTICE_INTERVIEW) {
-            InterviewSession session = interviewSessionService.createSession(
+            InterviewSession session = interviewSessionService.createPracticeSession(
                     accountId,
-                    request.interviewType(),
-                    request.questionType(),
-                    null,
-                    TurnType.NEW_TOPIC,
-                    null
+                    request.questionType()
             );
+            log.info("Practice session created - accountId={}, sessionId={}, expiresAt={}",
+                    accountId, session.getSessionId(), session.getExpiresAt());
 
             return new InterviewSessionCreateResponse(
                     session.getSessionId(),
@@ -73,14 +87,12 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
             );
         }
 
-        InterviewSession session = interviewSessionService.createSession(
+        InterviewSession session = interviewSessionService.createRealSession(
                 accountId,
-                request.interviewType(),
-                request.questionType(),
-                null,
-                TurnType.MAIN,
-                1
+                request.questionType()
         );
+        log.info("Real session skeleton created - accountId={}, sessionId={}, expiresAt={}",
+                accountId, session.getSessionId(), session.getExpiresAt());
 
         try {
             FirstQuestionDecision firstQuestionDecision = requestFirstQuestionFromAi(session, request.category());
@@ -99,6 +111,8 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
 
             session.updateNextQuestion(firstQuestion, firstTurnType, firstTopicId);
             interviewSessionService.save(session);
+            log.info("Real session first question prepared - sessionId={}, topicId={}, turnType={}, category={}",
+                    session.getSessionId(), firstTopicId, firstTurnType, responseCategory);
 
             return new InterviewSessionCreateResponse(
                     session.getSessionId(),
@@ -113,12 +127,18 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
                     session.getExpiresAt().toString()
             );
         } catch (AiFeedbackRequestRejectedException e) {
+            log.warn("Real session creation rejected by AI - accountId={}, sessionId={}, reason={}",
+                    accountId, session.getSessionId(), e.getMessage());
             interviewSessionService.deleteSession(session.getSessionId());
             throw e;
         } catch (AiFeedbackRetryableException e) {
+            log.warn("Real session creation failed by retryable AI error - accountId={}, sessionId={}, reason={}",
+                    accountId, session.getSessionId(), e.getMessage());
             interviewSessionService.deleteSession(session.getSessionId());
             throw new AiFeedbackDependencyFailedException(e.getMessage(), e);
         } catch (RuntimeException e) {
+            log.warn("Real session creation failed unexpectedly - accountId={}, sessionId={}, reason={}",
+                    accountId, session.getSessionId(), e.getMessage());
             interviewSessionService.deleteSession(session.getSessionId());
             throw e;
         }
@@ -133,6 +153,8 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
         InterviewSession session = interviewSessionService.getSessionWithoutTouch(accountId, sessionId);
         List<InterviewHistoryItem> history = session.getInterviewHistoryView();
         InterviewHistoryItem last = history.isEmpty() ? null : history.get(history.size() - 1);
+        log.debug("getSessionState - accountId={}, sessionId={}, status={}, turnCount={}, historySize={}",
+                accountId, sessionId, session.getStatus(), session.getTurnCount(), history.size());
 
         return new InterviewSessionStateResponse(
                 session.getSessionId(),
@@ -165,8 +187,10 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
         InterviewSession session = interviewSessionService.getSessionWithoutTouch(accountId, sessionId);
         if (session.getStatus() != InterviewSessionStatus.IN_PROGRESS
                 && session.getStatus() != InterviewSessionStatus.RETRYING) {
-            throw new InterviewSessionInvalidStateException("session is not in pending state");
+            throw new InterviewSessionInvalidStateException(ERROR_PENDING_STATE_REQUIRED);
         }
+        log.debug("getSessionFeedbackPending - accountId={}, sessionId={}, status={}, retryCount={}",
+                accountId, sessionId, session.getStatus(), session.getRetryCount());
 
         return new SessionFeedbackPendingResponse(
                 session.getStatus().name(),
@@ -182,8 +206,10 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
     public SessionFeedbackFailedResponse getSessionFeedbackFailed(Long accountId, String sessionId) {
         InterviewSession session = interviewSessionService.getSessionWithoutTouch(accountId, sessionId);
         if (session.getStatus() != InterviewSessionStatus.FAILED) {
-            throw new InterviewSessionInvalidStateException("session is not failed");
+            throw new InterviewSessionInvalidStateException(ERROR_FAILED_STATE_REQUIRED);
         }
+        log.debug("getSessionFeedbackFailed - accountId={}, sessionId={}, errorCode={}, retryCount={}",
+                accountId, sessionId, session.getErrorCode(), session.getRetryCount());
 
         return new SessionFeedbackFailedResponse(
                 session.getStatus().name(),
@@ -201,11 +227,13 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
     @Override
     public InterviewFeedbackDataResponse getSessionFeedbackCompleted(Long accountId, String sessionId) {
         InterviewSession session = interviewSessionService.getSessionWithoutTouch(accountId, sessionId);
-        InterviewFeedbackDataResponse feedback = feedbackRepository.findBySessionId(sessionId).orElse(null);
-        if (session.getStatus() != InterviewSessionStatus.COMPLETED || feedback == null) {
-            throw new InterviewSessionInvalidStateException("session feedback is not completed yet");
+        Optional<InterviewSessionFeedback> feedback = feedbackRepository.findBySessionId(sessionId);
+        if (session.getStatus() != InterviewSessionStatus.COMPLETED || feedback.isEmpty()) {
+            throw new InterviewSessionInvalidStateException(ERROR_FEEDBACK_NOT_COMPLETED);
         }
-        return feedback;
+        log.info("getSessionFeedbackCompleted - accountId={}, sessionId={}, status={}",
+                accountId, sessionId, session.getStatus());
+        return InterviewSessionFeedbackMapper.toDto(feedback.get());
     }
 
     /**
@@ -214,13 +242,12 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
     private void validateSessionCreateRequest(InterviewSessionCreateRequest request) {
         if (request.interviewType() != AnswerType.PRACTICE_INTERVIEW
                 && request.interviewType() != AnswerType.REAL_INTERVIEW) {
-            throw new InterviewSessionInvalidInputException("interviewType supports only PRACTICE_INTERVIEW or REAL_INTERVIEW");
+            throw new InterviewSessionInvalidInputException(ERROR_UNSUPPORTED_INTERVIEW_TYPE);
         }
 
         if (request.category() != null && !request.category().supports(request.questionType())) {
             throw new InterviewSessionInvalidInputException(
-                    "category is not supported for questionType. category="
-                            + request.category() + ", questionType=" + request.questionType()
+                    String.format(ERROR_CATEGORY_NOT_SUPPORTED_TEMPLATE, request.category(), request.questionType())
             );
         }
     }
@@ -230,6 +257,8 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
      */
     private FirstQuestionDecision requestFirstQuestionFromAi(InterviewSession session, QuestionCategory requestedCategory) {
         QuestionCategory initialCategory = resolveInitialCategoryForFirstQuestion(session.getQuestionType(), requestedCategory);
+        log.debug("requestFirstQuestionFromAi - sessionId={}, questionType={}, requestedCategory={}, initialCategory={}",
+                session.getSessionId(), session.getQuestionType(), requestedCategory, initialCategory);
         InterviewFollowUpQuestionRequest aiRequest = new InterviewFollowUpQuestionRequest(
                 session.getAccountId(),
                 session.getSessionId(),
@@ -244,8 +273,10 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
         boolean isSessionEnded = "session_ended".equalsIgnoreCase(aiResponse.message())
                 || Boolean.TRUE.equals(data.isSessionEnded());
         if (isSessionEnded || data.questionText() == null || data.questionText().isBlank()) {
-            throw new InterviewSessionInvalidStateException("failed to generate first question from AI");
+            throw new InterviewSessionInvalidStateException(ERROR_FIRST_QUESTION_GENERATION_FAILED);
         }
+        log.debug("First question from AI received - sessionId={}, topicId={}, turnType={}, category={}",
+                session.getSessionId(), data.topicId(), data.turnType(), data.category());
 
         return new FirstQuestionDecision(
                 data.questionText(),

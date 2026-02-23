@@ -7,11 +7,11 @@ import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
-import com.ktb.answer.dto.ai.InterviewFeedbackApiResponse;
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
-import com.ktb.answer.dto.ai.InterviewFeedbackRequest;
-import com.ktb.answer.dto.ai.InterviewHistoryRequest;
-import com.ktb.answer.dto.ai.InterviewKeywordResultResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackApiResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackRequest;
+import com.ktb.interview.dto.ai.InterviewHistoryRequest;
+import com.ktb.interview.dto.ai.InterviewKeywordResultResponse;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.interview.port.out.AiInterviewPort;
 import com.ktb.answer.service.AnswerDomainService;
@@ -26,6 +26,7 @@ import com.ktb.question.domain.QuestionCategory;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -33,9 +34,14 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestrator {
 
     private static final int[] RETRY_DELAYS_SECONDS = {1, 2, 4};
+    private static final String ERROR_INTERRUPTED_WHILE_RETRY_WAIT =
+            "Interrupted while waiting AI feedback retry";
+    private static final String ERROR_RETRY_EXHAUSTED =
+            "AI feedback dependency failed after retry exhaustion";
 
     private final AnswerRepository answerRepository;
     private final AnswerDomainService answerDomainService;
@@ -54,6 +60,9 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
             List<InterviewHistoryItem> history,
             List<QuestionHashtag> questionHashtags
     ) {
+        log.info("generateFeedback - accountId={}, sessionId={}, answerId={}, interviewType={}, historySize={}, hashtagSize={}",
+                accountId, session.getSessionId(), answer.getId(), session.getInterviewType(), history.size(),
+                questionHashtags == null ? 0 : questionHashtags.size());
         List<String> keywords = resolveKeywordsForRequest();
         QuestionCategory historyCategory = question.getCategory();
         String aiCategory = session.getInterviewType() == AnswerType.REAL_INTERVIEW && historyCategory != null
@@ -72,6 +81,8 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
 
         try {
             InterviewFeedbackApiResponse aiResponse = requestFeedbackWithRetry(session, answer, aiRequest);
+            log.info("generateFeedback success - sessionId={}, answerId={}, aiMessage={}",
+                    session.getSessionId(), answer.getId(), aiResponse.message());
             return normalizeFeedbackData(
                     aiResponse.data(),
                     answer.getId(),
@@ -85,6 +96,8 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
 
             session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
             interviewSessionService.save(session);
+            log.warn("generateFeedback rejected - sessionId={}, answerId={}, reason={}",
+                    session.getSessionId(), answer.getId(), e.getMessage());
             throw e;
         }
     }
@@ -104,9 +117,13 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
 
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
+                log.debug("requestFeedbackWithRetry attempt - sessionId={}, answerId={}, attempt={}/{}",
+                        session.getSessionId(), answer.getId(), attempt, totalAttempts);
                 InterviewFeedbackApiResponse response = aiInterviewClient.requestFeedback(request);
                 session.markInProgress();
                 interviewSessionService.save(session);
+                log.debug("requestFeedbackWithRetry success - sessionId={}, answerId={}, attempt={}",
+                        session.getSessionId(), answer.getId(), attempt);
                 return response;
             } catch (AiFeedbackRequestRejectedException e) {
                 throw e;
@@ -123,6 +140,8 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
                             RETRY_DELAYS_SECONDS.length
                     );
                     interviewSessionService.save(session);
+                    log.error("requestFeedbackWithRetry exhausted - sessionId={}, answerId={}, attempts={}, reason={}",
+                            session.getSessionId(), answer.getId(), totalAttempts, failureReason);
 
                     throw new AiFeedbackDependencyFailedException(failureReason, e);
                 }
@@ -130,6 +149,8 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
                 int retryCount = attempt;
                 int delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1];
                 LocalDateTime nextRetryAt = LocalDateTime.now().plusSeconds(delaySeconds);
+                log.warn("requestFeedbackWithRetry retryable error - sessionId={}, answerId={}, attempt={}/{}, nextRetryAt={}, reason={}",
+                        session.getSessionId(), answer.getId(), attempt, totalAttempts, nextRetryAt, e.getMessage());
 
                 answerDomainService.transitionStatus(answer, AnswerStatus.FAILED_RETRYABLE);
                 answerRepository.save(answer);
@@ -141,7 +162,10 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
                     Thread.sleep(delaySeconds * 1000L);
                 } catch (InterruptedException interruptedException) {
                     Thread.currentThread().interrupt();
-                    throw new AiFeedbackDependencyFailedException("Interrupted while waiting AI feedback retry", interruptedException);
+                    throw new AiFeedbackDependencyFailedException(
+                            ERROR_INTERRUPTED_WHILE_RETRY_WAIT,
+                            interruptedException
+                    );
                 }
 
                 answerDomainService.transitionStatus(answer, AnswerStatus.AI_FEEDBACK_PROCESSING);
@@ -149,7 +173,7 @@ public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestra
             }
         }
 
-        throw new AiFeedbackDependencyFailedException("AI feedback dependency failed after retry exhaustion");
+        throw new AiFeedbackDependencyFailedException(ERROR_RETRY_EXHAUSTED);
     }
 
     /**

@@ -3,19 +3,19 @@ package com.ktb.interview.application.service;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
-import com.ktb.answer.dto.ai.InterviewFeedbackMetricResponse;
-import com.ktb.answer.dto.ai.InterviewHistoryRequest;
-import com.ktb.answer.dto.ai.InterviewKeywordResultResponse;
-import com.ktb.answer.dto.ai.InterviewNextQuestionResponse;
-import com.ktb.answer.dto.ai.InterviewOverallFeedbackResponse;
-import com.ktb.answer.dto.request.PracticeAnswerSubmitRequest;
-import com.ktb.answer.dto.request.RealAnswerSubmitRequest;
-import com.ktb.answer.dto.response.session.InterviewNextQuestionTurnResponse;
-import com.ktb.answer.dto.response.session.InterviewFinalFeedbackMetricResponse;
-import com.ktb.answer.dto.response.session.InterviewPracticeSubmitResponse;
-import com.ktb.answer.dto.response.session.InterviewRealSubmitResponse;
-import com.ktb.answer.dto.response.session.InterviewSessionFinalFeedbackResponse;
+import com.ktb.interview.application.mapper.InterviewSessionFeedbackMapper;
+import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackMetricResponse;
+import com.ktb.interview.dto.ai.InterviewHistoryRequest;
+import com.ktb.interview.dto.ai.InterviewKeywordResultResponse;
+import com.ktb.interview.dto.ai.InterviewOverallFeedbackResponse;
+import com.ktb.interview.dto.request.PracticeAnswerSubmitRequest;
+import com.ktb.interview.dto.request.RealAnswerSubmitRequest;
+import com.ktb.interview.dto.response.session.InterviewNextQuestionTurnResponse;
+import com.ktb.interview.dto.response.session.InterviewFinalFeedbackMetricResponse;
+import com.ktb.interview.dto.response.session.InterviewPracticeSubmitResponse;
+import com.ktb.interview.dto.response.session.InterviewRealSubmitResponse;
+import com.ktb.interview.dto.response.session.InterviewSessionFinalFeedbackResponse;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AnswerDomainService;
@@ -24,6 +24,7 @@ import com.ktb.interview.application.SessionFeedbackOrchestrator;
 import com.ktb.interview.application.SessionFollowUpOrchestrator;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
+import com.ktb.interview.session.domain.InterviewSessionFeedback;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.domain.InterviewSessionStatus;
 import com.ktb.interview.session.exception.InterviewSessionInvalidInputException;
@@ -50,6 +51,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +67,37 @@ import org.springframework.transaction.annotation.Transactional;
 public class InterviewSubmissionServiceImpl implements InterviewSubmissionService {
 
     private static final int REAL_MAX_TURN = 15;
+    private static final String SESSION_STATUS_IN_PROGRESS = InterviewSessionStatus.IN_PROGRESS.name();
+    private static final String SESSION_STATUS_COMPLETED = InterviewSessionStatus.COMPLETED.name();
+    private static final String ERROR_CURRENT_QUESTION_NOT_PREPARED = "current question is not prepared for session";
+    private static final String ERROR_EMPTY_INTERVIEW_HISTORY_FOR_FINAL_FEEDBACK =
+            "interview history is empty for final feedback";
+    private static final String ERROR_INTERVIEW_HISTORY_REQUIRED = "interviewHistory must not be empty";
+    private static final String ERROR_INTERVIEW_HISTORY_GAP_TEMPLATE =
+            "interviewHistory.turn_order has a gap. expected=%d, actual=%d";
+    private static final String ERROR_NO_NEW_INTERVIEW_TURN = "no new interview turn to append";
+    private static final String ERROR_REAL_MAX_TURN_REACHED = "max turn reached for real interview session";
+    private static final String ERROR_AI_FOLLOW_UP_QUESTION_EMPTY = "AI follow-up question is empty";
+    private static final String ERROR_PRACTICE_ALREADY_SUBMITTED =
+            "practice interview answer already submitted. request final feedback";
+    private static final String ERROR_PRACTICE_FINAL_FEEDBACK_UNAVAILABLE_TEMPLATE =
+            "practice interview is not available for final feedback - status=%s";
+    private static final String ERROR_PRACTICE_ANSWER_NOT_SUBMITTED = "practice interview answer is not submitted yet";
+    private static final String ERROR_PRACTICE_QUESTION_ID_MISSING =
+            "practice interview questionId is missing in session history";
+    private static final String ERROR_SESSION_TYPE_MISMATCH_TEMPLATE =
+            "session interview type mismatch, expected=%s, actual=%s";
+    private static final String ERROR_SESSION_NOT_AVAILABLE_TEMPLATE =
+            "session is not available for submit - status=%s";
+    private static final String ERROR_REAL_ALREADY_ENDED = "real interview already ended. request final feedback";
+    private static final String ERROR_REAL_NOT_ENDED = "real interview is not ended yet";
+    private static final String ERROR_QUESTION_TYPE_MISMATCH_TEMPLATE =
+            "question type mismatch. expected=%s, actual=%s";
+    private static final String ERROR_ANSWER_TEXT_REQUIRED = "answerText is required";
+    private static final String ERROR_ANSWER_TEXT_LENGTH =
+            "answerText must be between 2 and 1500 characters";
+    private static final String ERROR_OPTIONAL_QUESTION_TYPE_MISMATCH_TEMPLATE =
+            "questionType mismatch. expected=%s, actual=%s";
 
     private final AnswerRepository answerRepository;
     private final AnswerDomainService answerDomainService;
@@ -119,7 +152,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
                 accountId,
                 question.getId(),
                 session.getSessionId(),
-                "IN_PROGRESS",
+                SESSION_STATUS_IN_PROGRESS,
                 TurnType.NEW_TOPIC.wireValue(),
                 turnOrder,
                 topicId,
@@ -147,7 +180,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         if (currentQuestionSnapshot == null
                 || currentQuestionSnapshot.content() == null
                 || currentQuestionSnapshot.content().isBlank()) {
-            throw new InterviewSessionInvalidStateException("current question is not prepared for session");
+            throw new InterviewSessionInvalidStateException(ERROR_CURRENT_QUESTION_NOT_PREPARED);
         }
 
         List<InterviewHistoryRequest> historyForFollowUp = resolveRealHistoryForFollowUp(session, answerText);
@@ -163,10 +196,9 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
                 );
 
         if (followUpDecision.badCase()) {
-            TurnType nextTurnType = resolveNextTurnType(null, followUpDecision.nextTurnType());
+            TurnType nextTurnType = resolveNextTurnType(followUpDecision.nextTurnType());
             Integer nextTopicId = resolveNextTopicId(
                     session.getCurrentTopicId(),
-                    null,
                     followUpDecision.nextTopicId()
             );
             nextTurnType = normalizeNextTurnTypeByTopic(nextTurnType, session.getCurrentTopicId(), nextTopicId);
@@ -174,7 +206,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
 
             InterviewRealSubmitResponse badCaseResponse = new InterviewRealSubmitResponse(
                     session.getSessionId(),
-                    "IN_PROGRESS",
+                    SESSION_STATUS_IN_PROGRESS,
                     followUpDecision.badCaseFeedback(),
                     null,
                     false
@@ -188,7 +220,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         if (shouldEnd) {
             Integer nextTopicId = resolveNextTopicId(
                     session.getCurrentTopicId(),
-                    null,
                     followUpDecision.nextTopicId()
             );
             InterviewQuestionSnapshot endedQuestion = resolveEndedQuestion(session, followUpDecision.nextQuestionText());
@@ -203,14 +234,12 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         } else {
             InterviewQuestionSnapshot nextQuestion = resolveNextQuestion(
                     session,
-                    null,
                     followUpDecision.nextQuestionText(),
                     followUpDecision.nextCategory()
             );
-            TurnType nextTurnType = resolveNextTurnType(null, followUpDecision.nextTurnType());
+            TurnType nextTurnType = resolveNextTurnType(followUpDecision.nextTurnType());
             Integer nextTopicId = resolveNextTopicId(
                     session.getCurrentTopicId(),
-                    null,
                     followUpDecision.nextTopicId()
             );
             nextTurnType = normalizeNextTurnTypeByTopic(nextTurnType, session.getCurrentTopicId(), nextTopicId);
@@ -239,16 +268,18 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         InterviewSession session = interviewSessionService.getSession(accountId, sessionId);
         validateSessionReadyForFinalFeedback(session);
 
-        InterviewFeedbackDataResponse cached = feedbackRepository.findBySessionId(sessionId).orElse(null);
-        if (cached != null) {
+        Optional<InterviewSessionFeedback> cached = feedbackRepository.findBySessionId(sessionId);
+        if (cached.isPresent()) {
             session.markCompleted();
             interviewSessionService.save(session);
-            return toSessionFinalFeedbackResponse(cached.withStatus("COMPLETED"), session.getInterviewType());
+            InterviewFeedbackDataResponse cachedFeedback = InterviewSessionFeedbackMapper.toDto(cached.get())
+                    .withStatus(SESSION_STATUS_COMPLETED);
+            return toSessionFinalFeedbackResponse(cachedFeedback, session.getInterviewType());
         }
 
         List<InterviewHistoryItem> history = session.getInterviewHistoryView();
         if (history.isEmpty()) {
-            throw new InterviewSessionInvalidStateException("interview history is empty for final feedback");
+            throw new InterviewSessionInvalidStateException(ERROR_EMPTY_INTERVIEW_HISTORY_FOR_FINAL_FEEDBACK);
         }
 
         InterviewHistoryItem latestTurn = history.get(history.size() - 1);
@@ -280,7 +311,11 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
 
         InterviewFeedbackDataResponse completed = toFinalSessionFeedbackResponse(feedback, answer.getId());
         session.markCompleted();
-        feedbackRepository.save(session.getSessionId(), completed, session.getExpiresAt());
+        feedbackRepository.save(
+                session.getSessionId(),
+                InterviewSessionFeedbackMapper.toDomain(completed),
+                session.getExpiresAt()
+        );
         interviewSessionService.save(session);
         return toSessionFinalFeedbackResponse(completed, session.getInterviewType());
     }
@@ -314,7 +349,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
                 accountId,
                 answer.getQuestion().getId(),
                 answer.getSessionId(),
-                "COMPLETED",
+                SESSION_STATUS_COMPLETED,
                 null,
                 metricResponses,
                 keywordResult,
@@ -451,7 +486,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
 
         InterviewQuestionSnapshot currentQuestion = session.getCurrentQuestion();
         if (currentQuestion == null || currentQuestion.content() == null || currentQuestion.content().isBlank()) {
-            throw new InterviewSessionInvalidStateException("current question is not prepared for session");
+            throw new InterviewSessionInvalidStateException(ERROR_CURRENT_QUESTION_NOT_PREPARED);
         }
 
         int nextTurnOrder = base.size();
@@ -474,7 +509,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      */
     private void syncSessionHistoryFromRequest(InterviewSession session, List<InterviewHistoryRequest> requestHistory) {
         if (requestHistory == null || requestHistory.isEmpty()) {
-            throw new InterviewSessionInvalidInputException("interviewHistory must not be empty");
+            throw new InterviewSessionInvalidInputException(ERROR_INTERVIEW_HISTORY_REQUIRED);
         }
 
         int existingCount = session.getInterviewHistoryView().size();
@@ -488,7 +523,8 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             }
             if (turnOrder > existingCount) {
                 throw new InterviewSessionInvalidInputException(
-                        "interviewHistory.turn_order has a gap. expected=" + existingCount + ", actual=" + turnOrder);
+                        String.format(ERROR_INTERVIEW_HISTORY_GAP_TEMPLATE, existingCount, turnOrder)
+                );
             }
 
             TurnType turnType = parseHistoryTurnType(turn.turnType());
@@ -510,7 +546,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         }
 
         if (appended == 0) {
-            throw new InterviewSessionInvalidInputException("no new interview turn to append");
+            throw new InterviewSessionInvalidInputException(ERROR_NO_NEW_INTERVIEW_TURN);
         }
     }
 
@@ -525,7 +561,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         }
         int finalTurnCount = maxTurnOrder + 1;
         if (finalTurnCount > REAL_MAX_TURN) {
-            throw new InterviewSessionInvalidStateException("max turn reached for real interview session");
+            throw new InterviewSessionInvalidStateException(ERROR_REAL_MAX_TURN_REACHED);
         }
     }
 
@@ -606,20 +642,17 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     }
 
     /**
-     * 피드백 결과와 follow-up 결과를 합쳐 다음 turn 타입을 결정합니다.
+     * follow-up 응답의 next turn 타입을 내부 enum으로 변환합니다.
      */
-    private TurnType resolveNextTurnType(String feedbackNextTurnType, String followUpNextTurnType) {
-        String resolved = followUpNextTurnType == null || followUpNextTurnType.isBlank()
-                ? feedbackNextTurnType
-                : followUpNextTurnType;
-        if (resolved == null || resolved.isBlank()) {
+    private TurnType resolveNextTurnType(String followUpNextTurnType) {
+        if (followUpNextTurnType == null || followUpNextTurnType.isBlank()) {
             return TurnType.FOLLOW_UP;
         }
 
         try {
-            return TurnType.fromWireValue(resolved);
+            return TurnType.fromWireValue(followUpNextTurnType);
         } catch (IllegalArgumentException e) {
-            log.warn("Unsupported next turn type from AI, fallback to follow_up - value={}", resolved);
+            log.warn("Unsupported next turn type from AI, fallback to follow_up - value={}", followUpNextTurnType);
             return TurnType.FOLLOW_UP;
         }
     }
@@ -652,14 +685,11 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     }
 
     /**
-     * 다음 topicId 우선순위(follow-up > feedback > 현재값)를 적용합니다.
+     * 다음 topicId 우선순위(follow-up > 현재값)를 적용합니다.
      */
-    private Integer resolveNextTopicId(Integer currentTopicId, Integer feedbackNextTopicId, Integer followUpNextTopicId) {
+    private Integer resolveNextTopicId(Integer currentTopicId, Integer followUpNextTopicId) {
         if (followUpNextTopicId != null) {
             return followUpNextTopicId;
-        }
-        if (feedbackNextTopicId != null) {
-            return feedbackNextTopicId;
         }
         return currentTopicId;
     }
@@ -676,7 +706,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     ) {
         return new InterviewRealSubmitResponse(
                 sessionId,
-                "IN_PROGRESS",
+                SESSION_STATUS_IN_PROGRESS,
                 null,
                 toNextTurnQuestionResponse(nextQuestion, nextTurnType, nextTopicId),
                 isFinal
@@ -704,29 +734,21 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     }
 
     /**
-     * 다음 질문 스냅샷을 결정하고 필요 시 동일 타입 랜덤 질문으로 fallback 합니다.
+     * AI follow-up 응답(question_text/category)으로 다음 질문 스냅샷을 생성합니다.
      */
     private InterviewQuestionSnapshot resolveNextQuestion(
             InterviewSession session,
-            InterviewNextQuestionResponse nextQuestion,
             String followUpQuestionText,
             String followUpCategory
     ) {
         if (followUpQuestionText != null && !followUpQuestionText.isBlank()) {
             QuestionCategory category = resolveNextQuestionCategory(
                     followUpCategory,
-                    nextQuestion,
                     session.getCurrentQuestion()
             );
             return new InterviewQuestionSnapshot(null, followUpQuestionText, category);
         }
-
-        if (nextQuestion != null && nextQuestion.questionId() != null) {
-            Question resolved = questionRepository.findById(nextQuestion.questionId())
-                    .orElseThrow(() -> new QuestionNotFoundException(nextQuestion.questionId()));
-            return new InterviewQuestionSnapshot(resolved.getId(), resolved.getContent(), resolved.getCategory());
-        }
-        throw new InterviewSessionInvalidStateException("AI follow-up question is empty");
+        throw new InterviewSessionInvalidStateException(ERROR_AI_FOLLOW_UP_QUESTION_EMPTY);
     }
 
     /**
@@ -758,7 +780,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      */
     private QuestionCategory resolveNextQuestionCategory(
             String followUpCategory,
-            InterviewNextQuestionResponse nextQuestion,
             InterviewQuestionSnapshot currentQuestion
     ) {
         if (followUpCategory != null && !followUpCategory.isBlank()) {
@@ -766,13 +787,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
                 return QuestionCategory.valueOf(followUpCategory.trim());
             } catch (IllegalArgumentException ignored) {
                 // ignore
-            }
-        }
-        if (nextQuestion != null && nextQuestion.category() != null) {
-            try {
-                return QuestionCategory.valueOf(nextQuestion.category());
-            } catch (IllegalArgumentException ignored) {
-                return currentQuestion == null ? null : currentQuestion.category();
             }
         }
         return currentQuestion == null ? null : currentQuestion.category();
@@ -790,7 +804,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
                 feedback.userId(),
                 feedback.questionId(),
                 feedback.sessionId(),
-                "COMPLETED",
+                SESSION_STATUS_COMPLETED,
                 feedback.badCaseFeedback(),
                 feedback.metrics(),
                 feedback.keywordResult(),
@@ -839,7 +853,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      */
     private void validatePracticeSubmissionAvailable(InterviewSession session) {
         if (session.getTurnCount() > 0 || session.getNextTurnType() == TurnType.SESSION_END) {
-            throw new InterviewSessionInvalidStateException("practice interview answer already submitted. request final feedback");
+            throw new InterviewSessionInvalidStateException(ERROR_PRACTICE_ALREADY_SUBMITTED);
         }
     }
 
@@ -859,14 +873,15 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      */
     private void validatePracticeFinalFeedbackReady(InterviewSession session) {
         if (session.getStatus() == InterviewSessionStatus.FAILED || session.getStatus() == InterviewSessionStatus.EXPIRED) {
-            throw new InterviewSessionInvalidStateException("practice interview is not available for final feedback - status="
-                    + session.getStatus());
+            throw new InterviewSessionInvalidStateException(
+                    String.format(ERROR_PRACTICE_FINAL_FEEDBACK_UNAVAILABLE_TEMPLATE, session.getStatus())
+            );
         }
         if (session.getStatus() == InterviewSessionStatus.COMPLETED) {
             return;
         }
         if (session.getInterviewHistoryView().isEmpty()) {
-            throw new InterviewSessionInvalidStateException("practice interview answer is not submitted yet");
+            throw new InterviewSessionInvalidStateException(ERROR_PRACTICE_ANSWER_NOT_SUBMITTED);
         }
     }
 
@@ -876,7 +891,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     private Question resolvePersistenceQuestionForFinalFeedback(InterviewSession session, InterviewHistoryItem latestTurn) {
         if (session.getInterviewType() == AnswerType.PRACTICE_INTERVIEW) {
             if (latestTurn.questionId() == null) {
-                throw new InterviewSessionInvalidStateException("practice interview questionId is missing in session history");
+                throw new InterviewSessionInvalidStateException(ERROR_PRACTICE_QUESTION_ID_MISSING);
             }
             return questionRepository.findById(latestTurn.questionId())
                     .orElseThrow(() -> new QuestionNotFoundException(latestTurn.questionId()));
@@ -890,7 +905,8 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     private void validateSessionType(InterviewSession session, AnswerType answerType) {
         if (session.getInterviewType() != answerType) {
             throw new InterviewSessionInvalidStateException(
-                    "session interview type mismatch, expected=" + answerType + ", actual=" + session.getInterviewType());
+                    String.format(ERROR_SESSION_TYPE_MISMATCH_TEMPLATE, answerType, session.getInterviewType())
+            );
         }
     }
 
@@ -901,7 +917,9 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         if (session.getStatus() == InterviewSessionStatus.COMPLETED
                 || session.getStatus() == InterviewSessionStatus.FAILED
                 || session.getStatus() == InterviewSessionStatus.EXPIRED) {
-            throw new InterviewSessionInvalidStateException("session is not available for submit - status=" + session.getStatus());
+            throw new InterviewSessionInvalidStateException(
+                    String.format(ERROR_SESSION_NOT_AVAILABLE_TEMPLATE, session.getStatus())
+            );
         }
     }
 
@@ -911,7 +929,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      */
     private void validateRealSubmissionAvailable(InterviewSession session) {
         if (session.getNextTurnType() == TurnType.SESSION_END) {
-            throw new InterviewSessionInvalidStateException("real interview already ended. request final feedback");
+            throw new InterviewSessionInvalidStateException(ERROR_REAL_ALREADY_ENDED);
         }
     }
 
@@ -922,7 +940,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         if (session.getNextTurnType() == TurnType.SESSION_END || session.getStatus() == InterviewSessionStatus.COMPLETED) {
             return;
         }
-        throw new InterviewSessionInvalidStateException("real interview is not ended yet");
+        throw new InterviewSessionInvalidStateException(ERROR_REAL_NOT_ENDED);
     }
 
     /**
@@ -931,7 +949,8 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     private void validateQuestionTypeMatch(QuestionType expected, QuestionType actual) {
         if (expected != actual) {
             throw new InterviewSessionInvalidInputException(
-                    "question type mismatch. expected=" + expected + ", actual=" + actual);
+                    String.format(ERROR_QUESTION_TYPE_MISMATCH_TEMPLATE, expected, actual)
+            );
         }
     }
 
@@ -941,12 +960,12 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     private String resolveRealAnswerText(RealAnswerSubmitRequest request) {
         String answerText = request.answerText();
         if (answerText == null || answerText.isBlank()) {
-            throw new InterviewSessionInvalidInputException("answerText is required");
+            throw new InterviewSessionInvalidInputException(ERROR_ANSWER_TEXT_REQUIRED);
         }
 
         String trimmed = answerText.trim();
         if (trimmed.length() < 2 || trimmed.length() > 1500) {
-            throw new InterviewSessionInvalidInputException("answerText must be between 2 and 1500 characters");
+            throw new InterviewSessionInvalidInputException(ERROR_ANSWER_TEXT_LENGTH);
         }
         return trimmed;
     }
@@ -961,7 +980,12 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
 
         if (!sessionQuestionType.name().equalsIgnoreCase(requestQuestionType.trim())) {
             throw new InterviewSessionInvalidInputException(
-                    "questionType mismatch. expected=" + sessionQuestionType.name() + ", actual=" + requestQuestionType);
+                    String.format(
+                            ERROR_OPTIONAL_QUESTION_TYPE_MISMATCH_TEMPLATE,
+                            sessionQuestionType.name(),
+                            requestQuestionType
+                    )
+            );
         }
     }
 
