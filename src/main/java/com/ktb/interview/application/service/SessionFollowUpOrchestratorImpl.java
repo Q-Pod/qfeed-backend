@@ -3,10 +3,10 @@ package com.ktb.interview.application.service;
 import com.ktb.ai.feedback.exception.AiFeedbackRequestRejectedException;
 import com.ktb.ai.feedback.exception.AiFeedbackRetryableException;
 import com.ktb.answer.domain.TurnType;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionApiResponse;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionDataResponse;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionRequest;
-import com.ktb.answer.dto.ai.InterviewHistoryRequest;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionDataResponse;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
+import com.ktb.interview.dto.ai.InterviewHistoryRequest;
 import com.ktb.interview.port.out.AiInterviewPort;
 import com.ktb.interview.application.SessionFollowUpOrchestrator;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
@@ -35,6 +35,10 @@ public class SessionFollowUpOrchestratorImpl implements SessionFollowUpOrchestra
             String questionTypeOverride,
             List<InterviewHistoryRequest> historyOverride
     ) {
+        log.debug("decideNext start - sessionId={}, questionTypeOverride={}, overrideHistorySize={}",
+                session.getSessionId(),
+                questionTypeOverride,
+                historyOverride == null ? 0 : historyOverride.size());
         InterviewFollowUpQuestionRequest request = new InterviewFollowUpQuestionRequest(
                 session.getAccountId(),
                 session.getSessionId(),
@@ -55,6 +59,8 @@ public class SessionFollowUpOrchestratorImpl implements SessionFollowUpOrchestra
                     || Boolean.TRUE.equals(data.isSessionEnded());
             boolean isBadCase = "bad_case_detected".equalsIgnoreCase(response.message())
                     || Boolean.TRUE.equals(data.isBadCase());
+            log.info("decideNext result - sessionId={}, message={}, shouldEnd={}, badCase={}, topicId={}, turnType={}",
+                    session.getSessionId(), response.message(), shouldEnd, isBadCase, data.topicId(), data.turnType());
 
             return new FollowUpDecision(
                     response.message(),

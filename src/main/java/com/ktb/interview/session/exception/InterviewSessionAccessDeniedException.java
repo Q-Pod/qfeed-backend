@@ -8,12 +8,18 @@ import com.ktb.common.exception.BusinessException;
  */
 public class InterviewSessionAccessDeniedException extends BusinessException {
 
+    private static final String MESSAGE_TEMPLATE = "%s sessionId=%s, accountId=%s";
+
     /**
      * 세션 소유권 검증 실패 메시지를 구성합니다.
      */
     public InterviewSessionAccessDeniedException(String sessionId, Long accountId) {
         super(ErrorCode.INTERVIEW_SESSION_ACCESS_DENIED,
-                ErrorCode.INTERVIEW_SESSION_ACCESS_DENIED.getMessage()
-                        + " sessionId=" + sessionId + ", accountId=" + accountId);
+                String.format(
+                        MESSAGE_TEMPLATE,
+                        ErrorCode.INTERVIEW_SESSION_ACCESS_DENIED.getMessage(),
+                        sessionId,
+                        accountId
+                ));
     }
 }

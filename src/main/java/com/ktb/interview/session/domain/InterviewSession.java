@@ -72,6 +72,48 @@ public class InterviewSession {
     }
 
     /**
+     * 연습 모드 세션을 생성합니다.
+     */
+    public static InterviewSession createPractice(
+            String sessionId,
+            Long accountId,
+            QuestionType questionType,
+            Duration ttl
+    ) {
+        return new InterviewSession(
+                sessionId,
+                accountId,
+                AnswerType.PRACTICE_INTERVIEW,
+                questionType,
+                null,
+                TurnType.NEW_TOPIC,
+                null,
+                ttl
+        );
+    }
+
+    /**
+     * 실전 모드 세션을 생성합니다.
+     */
+    public static InterviewSession createReal(
+            String sessionId,
+            Long accountId,
+            QuestionType questionType,
+            Duration ttl
+    ) {
+        return new InterviewSession(
+                sessionId,
+                accountId,
+                AnswerType.REAL_INTERVIEW,
+                questionType,
+                null,
+                TurnType.MAIN,
+                1,
+                ttl
+        );
+    }
+
+    /**
      * 현재 시각 기준 세션 만료 여부를 확인합니다.
      */
     public synchronized boolean isExpired(LocalDateTime now) {

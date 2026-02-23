@@ -2,10 +2,10 @@ package com.ktb.ai.feedback.client;
 
 import com.ktb.ai.feedback.exception.AiFeedbackRequestRejectedException;
 import com.ktb.ai.feedback.exception.AiFeedbackRetryableException;
-import com.ktb.answer.dto.ai.InterviewFeedbackApiResponse;
-import com.ktb.answer.dto.ai.InterviewFeedbackRequest;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionApiResponse;
-import com.ktb.answer.dto.ai.InterviewFollowUpQuestionRequest;
+import com.ktb.interview.dto.ai.InterviewFeedbackApiResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackRequest;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
+import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
 import com.ktb.interview.port.out.AiInterviewPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

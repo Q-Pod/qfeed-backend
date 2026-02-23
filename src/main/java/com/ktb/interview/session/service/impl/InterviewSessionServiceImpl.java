@@ -1,10 +1,8 @@
 package com.ktb.interview.session.service.impl;
 
 import com.ktb.answer.domain.AnswerType;
-import com.ktb.answer.domain.TurnType;
 import com.ktb.interview.session.InterviewSessionIdProvider;
 import com.ktb.interview.session.config.InterviewSessionProperties;
-import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.exception.InterviewSessionAccessDeniedException;
 import com.ktb.interview.session.exception.InterviewSessionExpiredException;
@@ -34,29 +32,38 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     private final InterviewSessionProperties sessionProperties;
 
     /**
-     * 인터뷰 유형별 TTL을 반영해 세션을 생성하고 저장합니다.
+     * 연습 모드 세션을 생성하고 저장합니다.
      */
     @Override
-    public InterviewSession createSession(
-            Long accountId,
-            AnswerType interviewType,
-            QuestionType questionType,
-            InterviewQuestionSnapshot firstQuestion,
-            TurnType initialTurnType,
-            Integer initialTopicId
-    ) {
-        Duration ttl = resolveTtl(interviewType);
-        InterviewSession session = new InterviewSession(
+    public InterviewSession createPracticeSession(Long accountId, QuestionType questionType) {
+        Duration ttl = resolveTtl(AnswerType.PRACTICE_INTERVIEW);
+        InterviewSession session = InterviewSession.createPractice(
                 sessionIdProvider.nextId(),
                 accountId,
-                interviewType,
                 questionType,
-                firstQuestion,
-                initialTurnType,
-                initialTopicId,
                 ttl
         );
         sessionRepository.save(session);
+        log.info("Practice session created - accountId={}, sessionId={}, questionType={}, expiresAt={}",
+                accountId, session.getSessionId(), questionType, session.getExpiresAt());
+        return session;
+    }
+
+    /**
+     * 실전 모드 세션을 생성하고 저장합니다.
+     */
+    @Override
+    public InterviewSession createRealSession(Long accountId, QuestionType questionType) {
+        Duration ttl = resolveTtl(AnswerType.REAL_INTERVIEW);
+        InterviewSession session = InterviewSession.createReal(
+                sessionIdProvider.nextId(),
+                accountId,
+                questionType,
+                ttl
+        );
+        sessionRepository.save(session);
+        log.info("Real session created - accountId={}, sessionId={}, questionType={}, expiresAt={}",
+                accountId, session.getSessionId(), questionType, session.getExpiresAt());
         return session;
     }
 
@@ -68,6 +75,8 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         InterviewSession session = getSessionWithoutTouch(accountId, sessionId);
         session.touch(resolveTtl(session.getInterviewType()));
         sessionRepository.save(session);
+        log.debug("Session touched - accountId={}, sessionId={}, interviewType={}, expiresAt={}",
+                accountId, sessionId, session.getInterviewType(), session.getExpiresAt());
         return session;
     }
 
@@ -80,6 +89,8 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
                 .orElseThrow(() -> new InterviewSessionNotFoundException(sessionId));
 
         if (!session.getAccountId().equals(accountId)) {
+            log.warn("Session access denied - sessionId={}, requestedAccountId={}, ownerAccountId={}",
+                    sessionId, accountId, session.getAccountId());
             throw new InterviewSessionAccessDeniedException(sessionId, accountId);
         }
 
@@ -87,6 +98,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
             session.markExpired();
             sessionRepository.deleteBySessionId(sessionId);
             feedbackRepository.deleteBySessionId(sessionId);
+            log.info("Session expired and removed - sessionId={}, accountId={}", sessionId, accountId);
             throw new InterviewSessionExpiredException(sessionId);
         }
 
@@ -99,6 +111,8 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     @Override
     public void save(InterviewSession session) {
         sessionRepository.save(session);
+        log.debug("Session saved - sessionId={}, status={}, turnCount={}",
+                session.getSessionId(), session.getStatus(), session.getTurnCount());
     }
 
     /**
@@ -108,6 +122,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     public void deleteSession(String sessionId) {
         sessionRepository.deleteBySessionId(sessionId);
         feedbackRepository.deleteBySessionId(sessionId);
+        log.info("Session deleted - sessionId={}", sessionId);
     }
 
     /**

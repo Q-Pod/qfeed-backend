@@ -1,19 +1,20 @@
 package com.ktb.interview.controller;
 
-import com.ktb.answer.dto.ai.InterviewFeedbackDataResponse;
-import com.ktb.answer.dto.request.InterviewSessionCreateRequest;
-import com.ktb.answer.dto.request.PracticeAnswerSubmitRequest;
-import com.ktb.answer.dto.request.RealAnswerSubmitRequest;
-import com.ktb.answer.dto.request.SessionFinalFeedbackRequest;
-import com.ktb.answer.dto.response.session.InterviewPracticeSubmitResponse;
-import com.ktb.answer.dto.response.session.InterviewSessionCreateResponse;
-import com.ktb.answer.dto.response.session.InterviewSessionFinalFeedbackResponse;
-import com.ktb.answer.dto.response.session.InterviewRealSubmitResponse;
-import com.ktb.answer.dto.response.session.InterviewSessionStateResponse;
-import com.ktb.answer.dto.response.session.SessionFeedbackFailedResponse;
-import com.ktb.answer.dto.response.session.SessionFeedbackPendingResponse;
+import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
+import com.ktb.interview.dto.request.InterviewSessionCreateRequest;
+import com.ktb.interview.dto.request.PracticeAnswerSubmitRequest;
+import com.ktb.interview.dto.request.RealAnswerSubmitRequest;
+import com.ktb.interview.dto.request.SessionFinalFeedbackRequest;
+import com.ktb.interview.dto.response.session.InterviewPracticeSubmitResponse;
+import com.ktb.interview.dto.response.session.InterviewSessionCreateResponse;
+import com.ktb.interview.dto.response.session.InterviewSessionFinalFeedbackResponse;
+import com.ktb.interview.dto.response.session.InterviewRealSubmitResponse;
+import com.ktb.interview.dto.response.session.InterviewSessionStateResponse;
+import com.ktb.interview.dto.response.session.SessionFeedbackFailedResponse;
+import com.ktb.interview.dto.response.session.SessionFeedbackPendingResponse;
 import com.ktb.interview.application.InterviewSessionManagementService;
 import com.ktb.interview.application.InterviewSubmissionService;
+import com.ktb.interview.session.domain.InterviewSessionStatus;
 import com.ktb.auth.security.adapter.SecurityUserAccount;
 import com.ktb.common.dto.ApiResponse;
 import com.ktb.common.util.HttpRequestUtils;
@@ -51,6 +52,8 @@ public class InterviewSessionController {
 
     private static final String HEADER_X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String HEADER_X_REAL_IP = "X-Real-IP";
+    private static final String SESSION_STATUS_COMPLETED = InterviewSessionStatus.COMPLETED.name();
+    private static final String SESSION_STATUS_FAILED = InterviewSessionStatus.FAILED.name();
 
     private final InterviewSubmissionService interviewSubmissionService;
     private final InterviewSessionManagementService interviewSessionManagementService;
@@ -76,7 +79,11 @@ public class InterviewSessionController {
             @Valid @RequestBody InterviewSessionCreateRequest request
     ) {
         Long accountId = principal.getAccount().getId();
+        log.info("createSession request - accountId={}, interviewType={}, questionType={}, category={}",
+                accountId, request.interviewType(), request.questionType(), request.category());
         InterviewSessionCreateResponse data = interviewSessionManagementService.createSession(accountId, request);
+        log.info("createSession response - accountId={}, sessionId={}, interviewType={}",
+                accountId, data.sessionId(), data.interviewType());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>("session_created_success", data));
     }
@@ -100,7 +107,10 @@ public class InterviewSessionController {
             @RequestParam("sessionId") String sessionId
     ) {
         Long accountId = principal.getAccount().getId();
+        log.debug("getSessionState request - accountId={}, sessionId={}", accountId, sessionId);
         InterviewSessionStateResponse data = interviewSessionManagementService.getSessionState(accountId, sessionId);
+        log.debug("getSessionState response - accountId={}, sessionId={}, status={}",
+                accountId, sessionId, data.status());
         return ResponseEntity.ok(new ApiResponse<>("session_retrieval_success", data));
     }
 
@@ -124,29 +134,34 @@ public class InterviewSessionController {
             @RequestParam("sessionId") String sessionId
     ) {
         Long accountId = principal.getAccount().getId();
+        log.debug("getSessionFeedback request - accountId={}, sessionId={}", accountId, sessionId);
         InterviewSessionStateResponse state = interviewSessionManagementService.getSessionState(accountId, sessionId);
 
         // 상태 기반으로 응답 타입/코드를 분기합니다.
-        return switch (state.status()) {
-            case "COMPLETED" -> {
-                InterviewFeedbackDataResponse data = interviewSessionManagementService
-                        .getSessionFeedbackCompleted(accountId, sessionId)
-                        .withStatus("COMPLETED");
-                if ("REAL_INTERVIEW".equalsIgnoreCase(state.interviewType())) {
-                    data = data.withoutIdentifiers();
-                }
-                yield ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
+        if (SESSION_STATUS_COMPLETED.equals(state.status())) {
+            InterviewFeedbackDataResponse data = interviewSessionManagementService
+                    .getSessionFeedbackCompleted(accountId, sessionId)
+                    .withStatus(SESSION_STATUS_COMPLETED);
+            if ("REAL_INTERVIEW".equalsIgnoreCase(state.interviewType())) {
+                data = data.withoutIdentifiers();
             }
-            case "FAILED" -> {
-                SessionFeedbackFailedResponse data = interviewSessionManagementService.getSessionFeedbackFailed(accountId, sessionId);
-                yield ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
-            }
-            default -> {
-                SessionFeedbackPendingResponse data = interviewSessionManagementService.getSessionFeedbackPending(accountId, sessionId);
-                yield ResponseEntity.status(HttpStatus.ACCEPTED)
-                        .body(new ApiResponse<>("feedback_processing", data));
-            }
-        };
+            log.debug("getSessionFeedback response - accountId={}, sessionId={}, status={}",
+                    accountId, sessionId, state.status());
+            return ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
+        }
+
+        if (SESSION_STATUS_FAILED.equals(state.status())) {
+            SessionFeedbackFailedResponse data = interviewSessionManagementService.getSessionFeedbackFailed(accountId, sessionId);
+            log.debug("getSessionFeedback response - accountId={}, sessionId={}, status={}",
+                    accountId, sessionId, state.status());
+            return ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
+        }
+
+        SessionFeedbackPendingResponse data = interviewSessionManagementService.getSessionFeedbackPending(accountId, sessionId);
+        log.debug("getSessionFeedback response - accountId={}, sessionId={}, status={}",
+                accountId, sessionId, state.status());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(new ApiResponse<>("feedback_processing", data));
     }
 
     /**
@@ -171,7 +186,11 @@ public class InterviewSessionController {
     ) {
         Long accountId = principal.getAccount().getId();
         String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
+        log.info("submitPractice request - accountId={}, sessionId={}, questionId={}, clientIp={}",
+                accountId, request.sessionId(), request.questionId(), clientIp);
         InterviewPracticeSubmitResponse data = interviewSubmissionService.submitPractice(accountId, request, clientIp);
+        log.info("submitPractice response - accountId={}, sessionId={}, status={}",
+                accountId, data.sessionId(), data.status());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>("answer_submission_success", data));
@@ -200,8 +219,12 @@ public class InterviewSessionController {
     ) {
         Long accountId = principal.getAccount().getId();
         String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
+        log.info("submitReal request - accountId={}, sessionId={}, questionType={}, clientIp={}",
+                accountId, request.sessionId(), request.questionType(), clientIp);
         InterviewRealSubmitResponse data = interviewSubmissionService.submitReal(accountId, request, clientIp);
         String message = data.badCaseFeedback() != null ? "bad_case_detected" : "generate_feedback_success";
+        log.info("submitReal response - accountId={}, sessionId={}, status={}, badCase={}",
+                accountId, data.sessionId(), data.status(), data.badCaseFeedback() != null);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(message, data));
@@ -231,11 +254,15 @@ public class InterviewSessionController {
         Long accountId = principal.getAccount().getId();
         String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
         String sessionId = request.sessionId();
+        log.info("requestSessionFinalFeedback request - accountId={}, sessionId={}, clientIp={}",
+                accountId, sessionId, clientIp);
         InterviewSessionFinalFeedbackResponse data = interviewSubmissionService.requestSessionFinalFeedback(
                 accountId,
                 sessionId,
                 clientIp
         );
+        log.info("requestSessionFinalFeedback response - accountId={}, sessionId={}, status={}",
+                accountId, data.sessionId(), data.status());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>("generate_feedback_success", data));
     }
@@ -258,7 +285,9 @@ public class InterviewSessionController {
             @PathVariable Long answerId
     ) {
         Long accountId = principal.getAccount().getId();
+        log.info("getPracticeFeedback request - accountId={}, answerId={}", accountId, answerId);
         InterviewFeedbackDataResponse data = interviewSubmissionService.getPracticeFeedback(accountId, answerId);
+        log.info("getPracticeFeedback response - accountId={}, answerId={}", accountId, answerId);
         return ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
     }
 }
