@@ -11,7 +11,6 @@ import com.ktb.answer.dto.ai.InterviewNextQuestionResponse;
 import com.ktb.answer.dto.ai.InterviewOverallFeedbackResponse;
 import com.ktb.answer.dto.request.PracticeAnswerSubmitRequest;
 import com.ktb.answer.dto.request.RealAnswerSubmitRequest;
-import com.ktb.answer.dto.request.RealInterviewHistoryTurnRequest;
 import com.ktb.answer.dto.response.session.InterviewNextQuestionTurnResponse;
 import com.ktb.answer.dto.response.session.InterviewFinalFeedbackMetricResponse;
 import com.ktb.answer.dto.response.session.InterviewPracticeSubmitResponse;
@@ -136,9 +135,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     public InterviewRealSubmitResponse submitReal(Long accountId, RealAnswerSubmitRequest request, String clientIp) {
         log.info("submitReal - accountId={}, sessionId={}, clientIp={}",
                 accountId, request.sessionId(), clientIp);
-        if (request.questionId() != null && !request.questionId().isBlank()) {
-            throw new InterviewSessionInvalidInputException("questionId must not be sent in real interview mode");
-        }
         String answerText = resolveRealAnswerText(request);
 
         InterviewSession session = interviewSessionService.getSession(accountId, request.sessionId());
@@ -154,12 +150,10 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             throw new InterviewSessionInvalidStateException("current question is not prepared for session");
         }
 
-        List<InterviewHistoryRequest> historyForFollowUp = resolveRealHistoryForFollowUp(request, session, answerText);
-        validateRequestQuestionSync(request.latestQuestionText(), currentQuestionSnapshot.content(), session.getSessionId());
+        List<InterviewHistoryRequest> historyForFollowUp = resolveRealHistoryForFollowUp(session, answerText);
+        validateRequestQuestionSync(request.question(), currentQuestionSnapshot.content(), session.getSessionId());
         validateRealTurnLimit(session, historyForFollowUp);
         syncSessionHistoryFromRequest(session, historyForFollowUp);
-
-        Question persistenceQuestion = resolvePersistenceQuestionForReal(currentQuestionSnapshot, session.getQuestionType());
 
         SessionFollowUpOrchestrator.FollowUpDecision followUpDecision =
                 sessionFollowUpOrchestrator.decideNext(
@@ -179,8 +173,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             session.updateNextQuestion(session.getCurrentQuestion(), nextTurnType, nextTopicId);
 
             InterviewRealSubmitResponse badCaseResponse = new InterviewRealSubmitResponse(
-                    accountId,
-                    null,
                     session.getSessionId(),
                     "IN_PROGRESS",
                     followUpDecision.badCaseFeedback(),
@@ -202,8 +194,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             InterviewQuestionSnapshot endedQuestion = resolveEndedQuestion(session, followUpDecision.nextQuestionText());
             session.updateNextQuestion(endedQuestion, TurnType.SESSION_END, nextTopicId);
             response = toRealTurnResponse(
-                    accountId,
-                    persistenceQuestion.getId(),
                     session.getSessionId(),
                     endedQuestion,
                     TurnType.SESSION_END,
@@ -226,8 +216,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             nextTurnType = normalizeNextTurnTypeByTopic(nextTurnType, session.getCurrentTopicId(), nextTopicId);
             session.updateNextQuestion(nextQuestion, nextTurnType, nextTopicId);
             response = toRealTurnResponse(
-                    accountId,
-                    persistenceQuestion.getId(),
                     session.getSessionId(),
                     nextQuestion,
                     nextTurnType,
@@ -255,7 +243,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         if (cached != null) {
             session.markCompleted();
             interviewSessionService.save(session);
-            return toSessionFinalFeedbackResponse(cached.withStatus("COMPLETED"));
+            return toSessionFinalFeedbackResponse(cached.withStatus("COMPLETED"), session.getInterviewType());
         }
 
         List<InterviewHistoryItem> history = session.getInterviewHistoryView();
@@ -294,7 +282,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         session.markCompleted();
         feedbackRepository.save(session.getSessionId(), completed, session.getExpiresAt());
         interviewSessionService.save(session);
-        return toSessionFinalFeedbackResponse(completed);
+        return toSessionFinalFeedbackResponse(completed, session.getInterviewType());
     }
 
     /**
@@ -454,65 +442,30 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      * 실전 제출 요청에서 follow-up API로 전달할 누적 interview_history를 구성합니다.
      */
     private List<InterviewHistoryRequest> resolveRealHistoryForFollowUp(
-            RealAnswerSubmitRequest request,
             InterviewSession session,
             String answerText
     ) {
-        List<RealInterviewHistoryTurnRequest> requestHistory = request.interviewHistory();
-        if (requestHistory == null || requestHistory.isEmpty()) {
-            List<InterviewHistoryRequest> base = session.getInterviewHistoryView().stream()
-                    .map(this::toAiHistoryRequest)
-                    .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+        List<InterviewHistoryRequest> base = session.getInterviewHistoryView().stream()
+                .map(this::toAiHistoryRequest)
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 
-            InterviewQuestionSnapshot currentQuestion = session.getCurrentQuestion();
-            if (currentQuestion == null || currentQuestion.content() == null || currentQuestion.content().isBlank()) {
-                throw new InterviewSessionInvalidStateException("current question is not prepared for session");
-            }
-
-            int nextTurnOrder = base.size();
-            Integer topicId = session.getCurrentTopicId() == null ? 1 : session.getCurrentTopicId();
-            String turnType = nextTurnOrder == 0 ? TurnType.NEW_TOPIC.wireValue() : TurnType.FOLLOW_UP.wireValue();
-            base.add(new InterviewHistoryRequest(
-                    currentQuestion.content(),
-                    answerText,
-                    turnType,
-                    nextTurnOrder,
-                    topicId,
-                    currentQuestion.category()
-            ));
-            return base;
+        InterviewQuestionSnapshot currentQuestion = session.getCurrentQuestion();
+        if (currentQuestion == null || currentQuestion.content() == null || currentQuestion.content().isBlank()) {
+            throw new InterviewSessionInvalidStateException("current question is not prepared for session");
         }
 
-        List<InterviewHistoryRequest> mapped = new ArrayList<>(requestHistory.size());
-        for (int i = 0; i < requestHistory.size(); i++) {
-            RealInterviewHistoryTurnRequest turn = requestHistory.get(i);
-            if (turn == null) {
-                throw new InterviewSessionInvalidInputException("interviewHistory contains null turn");
-            }
-            if (turn.question() == null || turn.question().isBlank()) {
-                throw new InterviewSessionInvalidInputException("interviewHistory.question is required");
-            }
-            if (turn.answerText() == null || turn.answerText().isBlank()) {
-                throw new InterviewSessionInvalidInputException("interviewHistory.answer_text is required");
-            }
-
-            int turnOrder = turn.turnOrder() == null ? i : turn.turnOrder();
-            if (turnOrder < 0) {
-                throw new InterviewSessionInvalidInputException("interviewHistory.turn_order must be >= 0");
-            }
-            Integer topicId = turn.topicId() == null ? 1 : turn.topicId();
-            mapped.add(new InterviewHistoryRequest(
-                    turn.question().trim(),
-                    turn.answerText().trim(),
-                    TurnType.FOLLOW_UP.wireValue(),
-                    turnOrder,
-                    topicId,
-                    turn.category()
-            ));
-        }
-
-        mapped.sort(java.util.Comparator.comparingInt(InterviewHistoryRequest::turnOrder));
-        return normalizeTurnTypesByTopic(mapped);
+        int nextTurnOrder = base.size();
+        Integer topicId = session.getCurrentTopicId() == null ? 1 : session.getCurrentTopicId();
+        String turnType = nextTurnOrder == 0 ? TurnType.NEW_TOPIC.wireValue() : TurnType.FOLLOW_UP.wireValue();
+        base.add(new InterviewHistoryRequest(
+                currentQuestion.content(),
+                answerText,
+                turnType,
+                nextTurnOrder,
+                topicId,
+                currentQuestion.category()
+        ));
+        return base;
     }
 
     /**
@@ -574,34 +527,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
         if (finalTurnCount > REAL_MAX_TURN) {
             throw new InterviewSessionInvalidStateException("max turn reached for real interview session");
         }
-    }
-
-    /**
-     * 토픽 변경 여부 기반으로 turn_type을 정규화합니다.
-     * 같은 topicId면 follow_up, 변경되면 new_topic으로 강제합니다.
-     */
-    private List<InterviewHistoryRequest> normalizeTurnTypesByTopic(List<InterviewHistoryRequest> history) {
-        List<InterviewHistoryRequest> normalized = new ArrayList<>(history.size());
-        Integer previousTopicId = null;
-        for (int i = 0; i < history.size(); i++) {
-            InterviewHistoryRequest turn = history.get(i);
-            String turnType;
-            if (i == 0 || previousTopicId == null || !previousTopicId.equals(turn.topicId())) {
-                turnType = TurnType.NEW_TOPIC.wireValue();
-            } else {
-                turnType = TurnType.FOLLOW_UP.wireValue();
-            }
-            normalized.add(new InterviewHistoryRequest(
-                    turn.question(),
-                    turn.answerText(),
-                    turnType,
-                    turn.turnOrder(),
-                    turn.topicId(),
-                    turn.category()
-            ));
-            previousTopicId = turn.topicId();
-        }
-        return normalized;
     }
 
     /**
@@ -743,8 +668,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      * 실전 turn 제출 응답 모델을 생성합니다.
      */
     private InterviewRealSubmitResponse toRealTurnResponse(
-            Long accountId,
-            Long questionId,
             String sessionId,
             InterviewQuestionSnapshot nextQuestion,
             TurnType nextTurnType,
@@ -752,8 +675,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             boolean isFinal
     ) {
         return new InterviewRealSubmitResponse(
-                accountId,
-                questionId,
                 sessionId,
                 "IN_PROGRESS",
                 null,
@@ -886,17 +807,23 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
      * 최종 세션 피드백 API 전용 응답 모델로 변환합니다.
      * next_question/next_turn_type/next_topic_id/is_final, metrics.comment은 노출하지 않습니다.
      */
-    private InterviewSessionFinalFeedbackResponse toSessionFinalFeedbackResponse(InterviewFeedbackDataResponse feedback) {
+    private InterviewSessionFinalFeedbackResponse toSessionFinalFeedbackResponse(
+            InterviewFeedbackDataResponse feedback,
+            AnswerType interviewType
+    ) {
         List<InterviewFinalFeedbackMetricResponse> metrics = feedback.metrics() == null
                 ? List.of()
                 : feedback.metrics().stream()
                 .map(metric -> new InterviewFinalFeedbackMetricResponse(metric.name(), metric.score()))
                 .toList();
 
+        Long userId = interviewType == AnswerType.REAL_INTERVIEW ? null : feedback.userId();
+        Long questionId = interviewType == AnswerType.REAL_INTERVIEW ? null : feedback.questionId();
+
         return new InterviewSessionFinalFeedbackResponse(
                 feedback.answerId(),
-                feedback.userId(),
-                feedback.questionId(),
+                userId,
+                questionId,
                 feedback.sessionId(),
                 feedback.status(),
                 feedback.badCaseFeedback(),
@@ -1010,10 +937,9 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
 
     /**
      * 실전 제출 요청에서 답변 텍스트를 추출하고 길이를 검증합니다.
-     * 우선순위: top-level answerText > interview_history 마지막 turn answer_text
      */
     private String resolveRealAnswerText(RealAnswerSubmitRequest request) {
-        String answerText = request.resolvedAnswerText();
+        String answerText = request.answerText();
         if (answerText == null || answerText.isBlank()) {
             throw new InterviewSessionInvalidInputException("answerText is required");
         }

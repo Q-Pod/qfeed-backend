@@ -8,14 +8,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "실전 모드 답변 제출 응답")
 public record InterviewRealSubmitResponse(
-        @JsonProperty("user_id")
-        @Schema(description = "사용자 ID", example = "102")
-        Long userId,
-
-        @JsonProperty("question_id")
-        @Schema(description = "영속 저장용 질문 ID", example = "599")
-        Long questionId,
-
         @JsonProperty("session_id")
         @Schema(description = "인터뷰 세션 ID", example = "10151031-858c-4158-93b9-a3f4b766975f")
         String sessionId,
