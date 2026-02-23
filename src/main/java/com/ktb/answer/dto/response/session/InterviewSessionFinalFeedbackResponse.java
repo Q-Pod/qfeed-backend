@@ -1,5 +1,6 @@
 package com.ktb.answer.dto.response.session;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ktb.answer.dto.ai.InterviewBadCaseFeedbackResponse;
 import com.ktb.answer.dto.ai.InterviewKeywordResultResponse;
@@ -15,10 +16,12 @@ public record InterviewSessionFinalFeedbackResponse(
         Long answerId,
 
         @JsonProperty("user_id")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         @Schema(description = "사용자 ID", example = "102")
         Long userId,
 
         @JsonProperty("question_id")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         @Schema(description = "질문 ID", example = "1001")
         Long questionId,
 

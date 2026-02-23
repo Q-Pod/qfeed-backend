@@ -132,6 +132,9 @@ public class InterviewSessionController {
                 InterviewFeedbackDataResponse data = interviewSessionManagementService
                         .getSessionFeedbackCompleted(accountId, sessionId)
                         .withStatus("COMPLETED");
+                if ("REAL_INTERVIEW".equalsIgnoreCase(state.interviewType())) {
+                    data = data.withoutIdentifiers();
+                }
                 yield ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
             }
             case "FAILED" -> {
