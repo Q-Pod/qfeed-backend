@@ -69,7 +69,7 @@ public class InterviewSessionController {
                     description = "잘못된 요청",
                     content = @Content(schema = @Schema(implementation = com.ktb.common.dto.CommonErrorResponse.class))
             ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "AI 질문 생성 의존 서비스 호출 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "질문 풀에서 첫 질문 생성 실패"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
     })
     @PostMapping("/interview/sessions")
@@ -79,8 +79,6 @@ public class InterviewSessionController {
             @Valid @RequestBody InterviewSessionCreateRequest request
     ) {
         Long accountId = principal.getAccount().getId();
-        log.info("createSession request - accountId={}, interviewType={}, questionType={}, category={}",
-                accountId, request.interviewType(), request.questionType(), request.category());
         InterviewSessionCreateResponse data = interviewSessionManagementService.createSession(accountId, request);
         log.info("createSession response - accountId={}, sessionId={}, interviewType={}",
                 accountId, data.sessionId(), data.interviewType());
