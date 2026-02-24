@@ -7,12 +7,14 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
  * 인메모리 인터뷰 세션 히스토리 저장소 구현.
  */
 @Component
+@Slf4j
 public class InMemoryInterviewSessionRepository implements InterviewSessionRepository {
 
     private final Map<String, InterviewSession> sessions = new ConcurrentHashMap<>();
@@ -23,6 +25,8 @@ public class InMemoryInterviewSessionRepository implements InterviewSessionRepos
     @Override
     public void save(InterviewSession session) {
         sessions.put(session.getSessionId(), session);
+        log.debug("InMemoryInterviewSessionRepository.save - sessionId={}, status={}",
+                session.getSessionId(), session.getStatus());
     }
 
     /**
@@ -30,6 +34,7 @@ public class InMemoryInterviewSessionRepository implements InterviewSessionRepos
      */
     @Override
     public Optional<InterviewSession> findBySessionId(String sessionId) {
+        log.debug("InMemoryInterviewSessionRepository.findBySessionId - sessionId={}", sessionId);
         return Optional.ofNullable(sessions.get(sessionId));
     }
 
@@ -39,6 +44,7 @@ public class InMemoryInterviewSessionRepository implements InterviewSessionRepos
     @Override
     public void deleteBySessionId(String sessionId) {
         sessions.remove(sessionId);
+        log.debug("InMemoryInterviewSessionRepository.deleteBySessionId - sessionId={}", sessionId);
     }
 
     /**
@@ -61,6 +67,9 @@ public class InMemoryInterviewSessionRepository implements InterviewSessionRepos
                 sessions.remove(entry.getKey());
                 removed += 1;
             }
+        }
+        if (removed > 0) {
+            log.info("InMemoryInterviewSessionRepository.removeExpired - removed={}", removed);
         }
         return removed;
     }

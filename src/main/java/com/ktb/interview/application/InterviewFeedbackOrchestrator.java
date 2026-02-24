@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 세션 이력을 AI 피드백 요청으로 조합/호출하는 오케스트레이터 포트.
  */
-public interface SessionFeedbackOrchestrator {
+public interface InterviewFeedbackOrchestrator {
 
     /**
      * 세션 이력과 질문 키워드를 조합해 AI 서버 피드백을 생성합니다.

@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * 다음 질문/종료 여부를 결정하는 오케스트레이터 포트.
  */
-public interface SessionFollowUpOrchestrator {
+public interface InterviewFollowUpOrchestrator {
 
     /**
      * 실전 세션 다음 turn(꼬리질문/새토픽/종료)을 결정합니다.

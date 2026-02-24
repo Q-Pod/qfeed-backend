@@ -15,7 +15,7 @@ import com.ktb.interview.dto.ai.InterviewKeywordResultResponse;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.interview.port.out.AiInterviewPort;
 import com.ktb.answer.service.AnswerDomainService;
-import com.ktb.interview.application.SessionFeedbackOrchestrator;
+import com.ktb.interview.application.InterviewFeedbackOrchestrator;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.service.InterviewSessionService;
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SessionFeedbackOrchestratorImpl implements SessionFeedbackOrchestrator {
+public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrchestrator {
 
     private static final int[] RETRY_DELAYS_SECONDS = {1, 2, 4};
     private static final String ERROR_INTERRUPTED_WHILE_RETRY_WAIT =

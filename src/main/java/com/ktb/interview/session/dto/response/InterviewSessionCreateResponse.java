@@ -18,7 +18,7 @@ public record InterviewSessionCreateResponse(
         String questionType,
 
         @JsonProperty("question_text")
-        @Schema(description = "현재 질문 텍스트(실전: AI 첫 질문, 연습: null)", nullable = true)
+        @Schema(description = "현재 질문 텍스트(실전: DB 랜덤 첫 질문, 연습: null)", nullable = true)
         String questionText,
 
         @Schema(description = "카테고리", nullable = true, example = "OS")

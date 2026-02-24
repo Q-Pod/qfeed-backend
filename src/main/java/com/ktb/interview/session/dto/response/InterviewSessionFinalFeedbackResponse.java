@@ -8,17 +8,17 @@ import java.util.List;
 @Schema(description = "세션 최종 피드백 응답")
 public record InterviewSessionFinalFeedbackResponse(
         @JsonProperty("answer_id")
-        @Schema(description = "답변 ID", example = "10038")
+        @Schema(description = "답변 ID(없으면 null)", nullable = true, example = "10038")
         Long answerId,
 
         @JsonProperty("user_id")
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        @Schema(description = "사용자 ID", example = "102")
+        @Schema(description = "사용자 ID(실전 모드 조회 시 null)", nullable = true, example = "102")
         Long userId,
 
         @JsonProperty("question_id")
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        @Schema(description = "질문 ID", example = "1001")
+        @Schema(description = "질문 ID(실전 모드 조회 시 null)", nullable = true, example = "1001")
         Long questionId,
 
         @JsonProperty("session_id")
@@ -45,6 +45,10 @@ public record InterviewSessionFinalFeedbackResponse(
 
         @JsonProperty("overall_feedback")
         @Schema(description = "종합 피드백")
-        InterviewSessionOverallFeedbackResponse overallFeedback
+        InterviewSessionOverallFeedbackResponse overallFeedback,
+
+        @JsonProperty("interview_history")
+        @Schema(description = "세션 누적 인터뷰 이력")
+        List<InterviewHistoryResponse> interviewHistory
 ) {
 }

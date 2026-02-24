@@ -1,8 +1,8 @@
 package com.ktb.interview.application;
 
-import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
 import com.ktb.interview.session.dto.request.InterviewSessionCreateRequest;
 import com.ktb.interview.session.dto.response.InterviewSessionCreateResponse;
+import com.ktb.interview.session.dto.response.InterviewSessionFinalFeedbackResponse;
 import com.ktb.interview.session.dto.response.InterviewSessionStateResponse;
 import com.ktb.interview.session.dto.response.SessionFeedbackFailedResponse;
 import com.ktb.interview.session.dto.response.SessionFeedbackPendingResponse;
@@ -35,5 +35,5 @@ public interface InterviewSessionManagementService {
     /**
      * 세션 피드백이 완료된 경우 최종 피드백을 조회합니다.
      */
-    InterviewFeedbackDataResponse getSessionFeedbackCompleted(Long accountId, String sessionId);
+    InterviewSessionFinalFeedbackResponse getSessionFeedbackCompleted(Long accountId, String sessionId);
 }
