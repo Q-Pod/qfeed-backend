@@ -1,11 +1,11 @@
 package com.ktb.interview.application;
 
 import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
-import com.ktb.interview.dto.request.PracticeAnswerSubmitRequest;
-import com.ktb.interview.dto.request.RealAnswerSubmitRequest;
-import com.ktb.interview.dto.response.session.InterviewPracticeSubmitResponse;
-import com.ktb.interview.dto.response.session.InterviewRealSubmitResponse;
-import com.ktb.interview.dto.response.session.InterviewSessionFinalFeedbackResponse;
+import com.ktb.interview.session.dto.request.PracticeAnswerSubmitRequest;
+import com.ktb.interview.session.dto.request.RealAnswerSubmitRequest;
+import com.ktb.interview.session.dto.response.InterviewPracticeSubmitResponse;
+import com.ktb.interview.session.dto.response.InterviewRealSubmitResponse;
+import com.ktb.interview.session.dto.response.InterviewSessionFinalFeedbackResponse;
 
 /**
  * 인터뷰 답변 제출 유스케이스 포트.

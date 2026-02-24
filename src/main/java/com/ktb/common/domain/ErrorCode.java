@@ -59,6 +59,7 @@ public enum ErrorCode {
     INTERVIEW_SESSION_EXPIRED(409, "IS003", "인터뷰 세션이 만료되었습니다"),
     INTERVIEW_SESSION_INVALID_STATE(409, "IS004", "인터뷰 세션 상태가 올바르지 않습니다"),
     INTERVIEW_SESSION_INVALID_INPUT(400, "IS005", "인터뷰 요청 입력값이 올바르지 않습니다"),
+    INTERVIEW_SESSION_INVALID_CONFIG(500, "IS006", "인터뷰 세션 설정값이 올바르지 않습니다"),
 
     // ==================== File 관련 ====================
     INVALID_FILE_FORMAT(400, "F001", "지원하지 않는 파일 형식입니다"),
