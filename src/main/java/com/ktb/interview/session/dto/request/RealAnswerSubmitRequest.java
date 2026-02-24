@@ -1,4 +1,4 @@
-package com.ktb.interview.dto.request;
+package com.ktb.interview.session.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

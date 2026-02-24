@@ -1,4 +1,4 @@
-package com.ktb.interview.dto.request;
+package com.ktb.interview.session.dto.request;
 
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.question.domain.QuestionCategory;

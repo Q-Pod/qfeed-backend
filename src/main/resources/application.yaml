@@ -165,6 +165,7 @@ interview:
   session:
     practice-ttl: PT10M
     real-ttl: PT90M
+    real-max-turn: ${INTERVIEW_SESSION_REAL_MAX_TURN}
     cleanup-interval-ms: 300000
     store:
       history-key-prefix: interview:session

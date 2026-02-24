@@ -1,4 +1,4 @@
-package com.ktb.interview.application.mapper;
+package com.ktb.interview.session.mapper;
 
 import com.ktb.interview.dto.ai.InterviewBadCaseFeedbackResponse;
 import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;

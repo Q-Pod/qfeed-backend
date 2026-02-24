@@ -1,8 +1,7 @@
-package com.ktb.interview.dto.response.session;
+package com.ktb.interview.session.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.ktb.interview.dto.ai.InterviewBadCaseFeedbackResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -17,7 +16,7 @@ public record InterviewRealSubmitResponse(
 
         @JsonProperty("bad_case_feedback")
         @Schema(description = "Bad case 감지 정보(없으면 null)")
-        InterviewBadCaseFeedbackResponse badCaseFeedback,
+        InterviewSessionBadCaseFeedbackResponse badCaseFeedback,
 
         @JsonProperty("next_question")
         @Schema(description = "다음 질문 정보(세션 종료 시 종료 메시지)")
