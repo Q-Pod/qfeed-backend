@@ -21,6 +21,7 @@ public class InterviewSession {
     private final Long accountId;
     private final AnswerType interviewType;
     private final QuestionType questionType;
+    private Long initialQuestionId;
 
     private InterviewSessionStatus status;
     private int turnCount;
@@ -35,6 +36,8 @@ public class InterviewSession {
     private String errorCode;
     private String errorMessage;
 
+    private final LocalDateTime startedAt;
+    private LocalDateTime endedAt;
     private LocalDateTime nextRetryAt;
     private LocalDateTime failedAt;
     private LocalDateTime expiresAt;
@@ -67,6 +70,8 @@ public class InterviewSession {
         this.interviewHistory = new ArrayList<>();
 
         LocalDateTime now = LocalDateTime.now();
+        this.startedAt = now;
+        this.endedAt = null;
         this.updatedAt = now;
         this.expiresAt = now.plus(ttl);
     }
@@ -132,6 +137,9 @@ public class InterviewSession {
      * turn 이력 1건을 추가하고 turn 카운트를 증가시킵니다.
      */
     public synchronized void appendHistory(InterviewHistoryItem item) {
+        if (this.initialQuestionId == null && item.questionId() != null) {
+            this.initialQuestionId = item.questionId();
+        }
         this.interviewHistory.add(item);
         this.turnCount += 1;
         this.updatedAt = LocalDateTime.now();
@@ -170,7 +178,9 @@ public class InterviewSession {
     public synchronized void markCompleted() {
         this.status = InterviewSessionStatus.COMPLETED;
         this.nextTurnType = TurnType.SESSION_END;
-        this.updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.endedAt = now;
+        this.updatedAt = now;
     }
 
     /**
@@ -182,6 +192,7 @@ public class InterviewSession {
         this.errorMessage = errorMessage;
         this.retryCount = retryCount;
         this.failedAt = LocalDateTime.now();
+        this.endedAt = this.failedAt;
         this.nextRetryAt = null;
         this.updatedAt = this.failedAt;
     }
@@ -191,7 +202,9 @@ public class InterviewSession {
      */
     public synchronized void markExpired() {
         this.status = InterviewSessionStatus.EXPIRED;
-        this.updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.endedAt = now;
+        this.updatedAt = now;
     }
 
     /**
@@ -202,6 +215,9 @@ public class InterviewSession {
             TurnType nextTurnType,
             Integer nextTopicId
     ) {
+        if (this.initialQuestionId == null && nextQuestion != null && nextQuestion.questionId() != null) {
+            this.initialQuestionId = nextQuestion.questionId();
+        }
         this.currentQuestion = nextQuestion;
         this.nextTurnType = nextTurnType;
         this.currentTopicId = nextTopicId;

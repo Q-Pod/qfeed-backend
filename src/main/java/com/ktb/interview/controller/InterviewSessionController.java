@@ -15,6 +15,7 @@ import com.ktb.interview.session.dto.response.SessionFeedbackPendingResponse;
 import com.ktb.interview.application.InterviewSessionManagementService;
 import com.ktb.interview.application.InterviewSubmissionService;
 import com.ktb.interview.session.domain.InterviewSessionStatus;
+import com.ktb.interview.session.exception.InterviewSessionInvalidStateException;
 import com.ktb.auth.security.adapter.SecurityUserAccount;
 import com.ktb.common.dto.ApiResponse;
 import com.ktb.common.util.HttpRequestUtils;
@@ -61,7 +62,10 @@ public class InterviewSessionController {
     /**
      * 인터뷰 세션을 생성합니다.
      */
-    @Operation(summary = "인터뷰 세션 생성", description = "연습/실전 모드 인터뷰 세션을 생성합니다.")
+    @Operation(
+            summary = "인터뷰 세션 생성",
+            description = "연습/실전 모드 인터뷰 세션을 생성합니다. 실전 모드는 DB 질문 풀에서 랜덤 첫 질문을 세션에 설정합니다."
+    )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "세션 생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -115,7 +119,10 @@ public class InterviewSessionController {
     /**
      * 세션 상태에 따라 피드백 완료/실패/진행중 응답을 분기 반환합니다.
      */
-    @Operation(summary = "인터뷰 세션 피드백 조회", description = "세션 상태에 따라 진행중(202)/완료(200)/실패(200) 응답을 반환합니다. 프론트엔드 폴링 조회용 API입니다.")
+    @Operation(
+            summary = "인터뷰 세션 피드백 조회",
+            description = "완료 피드백이 DB에 저장되어 있으면 우선 반환하고, 미완료 시 진행중(202)/실패(200) 상태 응답을 반환합니다."
+    )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "피드백 완료 또는 실패"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "피드백 처리 중"),
@@ -133,20 +140,18 @@ public class InterviewSessionController {
     ) {
         Long accountId = principal.getAccount().getId();
         log.debug("getSessionFeedback request - accountId={}, sessionId={}", accountId, sessionId);
-        InterviewSessionStateResponse state = interviewSessionManagementService.getSessionState(accountId, sessionId);
 
-        // 상태 기반으로 응답 타입/코드를 분기합니다.
-        if (SESSION_STATUS_COMPLETED.equals(state.status())) {
-            InterviewFeedbackDataResponse data = interviewSessionManagementService
-                    .getSessionFeedbackCompleted(accountId, sessionId)
-                    .withStatus(SESSION_STATUS_COMPLETED);
-            if ("REAL_INTERVIEW".equalsIgnoreCase(state.interviewType())) {
-                data = data.withoutIdentifiers();
-            }
+        try {
+            InterviewSessionFinalFeedbackResponse data = interviewSessionManagementService
+                    .getSessionFeedbackCompleted(accountId, sessionId);
             log.debug("getSessionFeedback response - accountId={}, sessionId={}, status={}",
-                    accountId, sessionId, state.status());
+                    accountId, sessionId, SESSION_STATUS_COMPLETED);
             return ResponseEntity.ok(new ApiResponse<>("feedback_retrieval_success", data));
+        } catch (InterviewSessionInvalidStateException ignored) {
+            // completed 상태가 아니면 진행중/실패 분기로 내려갑니다.
         }
+
+        InterviewSessionStateResponse state = interviewSessionManagementService.getSessionState(accountId, sessionId);
 
         if (SESSION_STATUS_FAILED.equals(state.status())) {
             SessionFeedbackFailedResponse data = interviewSessionManagementService.getSessionFeedbackFailed(accountId, sessionId);
@@ -231,7 +236,10 @@ public class InterviewSessionController {
     /**
      * 연습/실전 세션에 대해 최종 AI 피드백을 생성합니다.
      */
-    @Operation(summary = "세션 최종 피드백 요청", description = "요청 body의 sessionId를 기준으로 세션 누적 이력 최종 AI 피드백을 생성합니다. 실전 모드는 세션 종료 후 호출해야 합니다.")
+    @Operation(
+            summary = "세션 최종 피드백 요청",
+            description = "요청 body의 sessionId를 기준으로 세션 누적 이력 최종 AI 피드백을 생성합니다. 성공 시 결과를 DB에 저장하고 인메모리 세션/피드백은 삭제됩니다."
+    )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "피드백 생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청"),

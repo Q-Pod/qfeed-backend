@@ -66,12 +66,15 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
         String key = storePolicy.historyKey(sessionId);
         StoredSession stored = sessionsByKey.get(key);
         if (stored == null) {
+            log.debug("RedisInterviewSessionRepository.findBySessionId miss - key={}", key);
             return Optional.empty();
         }
         if (stored.isExpired(LocalDateTime.now())) {
             sessionsByKey.remove(key);
+            log.info("RedisInterviewSessionRepository.findBySessionId expired - key={}", key);
             return Optional.empty();
         }
+        log.debug("RedisInterviewSessionRepository.findBySessionId hit - key={}", key);
         return Optional.of(stored.session());
     }
 
@@ -80,7 +83,9 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
      */
     @Override
     public void deleteBySessionId(String sessionId) {
-        sessionsByKey.remove(storePolicy.historyKey(sessionId));
+        String key = storePolicy.historyKey(sessionId);
+        sessionsByKey.remove(key);
+        log.debug("RedisInterviewSessionRepository.deleteBySessionId - key={}", key);
     }
 
     /**
@@ -90,13 +95,18 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
     public Collection<InterviewSession> findAll() {
         LocalDateTime now = LocalDateTime.now();
         Collection<InterviewSession> result = new ArrayList<>();
+        int removed = 0;
         for (Map.Entry<String, StoredSession> entry : sessionsByKey.entrySet()) {
             StoredSession stored = entry.getValue();
             if (stored.isExpired(now)) {
                 sessionsByKey.remove(entry.getKey());
+                removed += 1;
                 continue;
             }
             result.add(stored.session());
+        }
+        if (removed > 0) {
+            log.info("RedisInterviewSessionRepository.findAll removed expired fallback sessions - removed={}", removed);
         }
         return result;
     }
@@ -113,6 +123,9 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
                 sessionsByKey.remove(entry.getKey());
                 removed += 1;
             }
+        }
+        if (removed > 0) {
+            log.info("RedisInterviewSessionRepository.removeExpired - removed={}", removed);
         }
         return removed;
     }

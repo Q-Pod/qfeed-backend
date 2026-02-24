@@ -63,12 +63,15 @@ public class RedisInterviewSessionFeedbackRepository implements InterviewSession
         String key = storePolicy.feedbackKey(sessionId);
         StoredFeedback stored = feedbackByKey.get(key);
         if (stored == null) {
+            log.debug("RedisInterviewSessionFeedbackRepository.findBySessionId miss - key={}", key);
             return Optional.empty();
         }
         if (stored.isExpired(LocalDateTime.now())) {
             feedbackByKey.remove(key);
+            log.info("RedisInterviewSessionFeedbackRepository.findBySessionId expired - key={}", key);
             return Optional.empty();
         }
+        log.debug("RedisInterviewSessionFeedbackRepository.findBySessionId hit - key={}", key);
         return Optional.of(stored.feedback());
     }
 
@@ -77,7 +80,9 @@ public class RedisInterviewSessionFeedbackRepository implements InterviewSession
      */
     @Override
     public void deleteBySessionId(String sessionId) {
-        feedbackByKey.remove(storePolicy.feedbackKey(sessionId));
+        String key = storePolicy.feedbackKey(sessionId);
+        feedbackByKey.remove(key);
+        log.debug("RedisInterviewSessionFeedbackRepository.deleteBySessionId - key={}", key);
     }
 
     private record StoredFeedback(
