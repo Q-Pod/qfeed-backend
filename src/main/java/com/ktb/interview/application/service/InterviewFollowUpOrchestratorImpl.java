@@ -8,7 +8,7 @@ import com.ktb.interview.dto.ai.InterviewFollowUpQuestionDataResponse;
 import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
 import com.ktb.interview.dto.ai.InterviewHistoryRequest;
 import com.ktb.interview.port.out.AiInterviewPort;
-import com.ktb.interview.application.SessionFollowUpOrchestrator;
+import com.ktb.interview.application.InterviewFollowUpOrchestrator;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSession;
 import java.util.List;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SessionFollowUpOrchestratorImpl implements SessionFollowUpOrchestrator {
+public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrchestrator {
 
     private final AiInterviewPort aiInterviewClient;
 

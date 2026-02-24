@@ -6,12 +6,14 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
  * 인메모리 세션 피드백 저장소 구현.
  */
 @Component
+@Slf4j
 public class InMemoryInterviewSessionFeedbackRepository implements InterviewSessionFeedbackRepository {
 
     private final Map<String, StoredFeedback> feedbackBySessionId = new ConcurrentHashMap<>();
@@ -22,6 +24,7 @@ public class InMemoryInterviewSessionFeedbackRepository implements InterviewSess
     @Override
     public void save(String sessionId, InterviewSessionFeedback feedback, LocalDateTime expiresAt) {
         feedbackBySessionId.put(sessionId, new StoredFeedback(feedback, expiresAt));
+        log.debug("InMemoryInterviewSessionFeedbackRepository.save - sessionId={}, expiresAt={}", sessionId, expiresAt);
     }
 
     /**
@@ -31,12 +34,15 @@ public class InMemoryInterviewSessionFeedbackRepository implements InterviewSess
     public Optional<InterviewSessionFeedback> findBySessionId(String sessionId) {
         StoredFeedback stored = feedbackBySessionId.get(sessionId);
         if (stored == null) {
+            log.debug("InMemoryInterviewSessionFeedbackRepository.findBySessionId miss - sessionId={}", sessionId);
             return Optional.empty();
         }
         if (stored.isExpired(LocalDateTime.now())) {
             feedbackBySessionId.remove(sessionId);
+            log.info("InMemoryInterviewSessionFeedbackRepository.findBySessionId expired - sessionId={}", sessionId);
             return Optional.empty();
         }
+        log.debug("InMemoryInterviewSessionFeedbackRepository.findBySessionId hit - sessionId={}", sessionId);
         return Optional.of(stored.feedback());
     }
 
@@ -46,6 +52,7 @@ public class InMemoryInterviewSessionFeedbackRepository implements InterviewSess
     @Override
     public void deleteBySessionId(String sessionId) {
         feedbackBySessionId.remove(sessionId);
+        log.debug("InMemoryInterviewSessionFeedbackRepository.deleteBySessionId - sessionId={}", sessionId);
     }
 
     private record StoredFeedback(
