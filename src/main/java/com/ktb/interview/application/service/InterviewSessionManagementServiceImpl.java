@@ -1,14 +1,8 @@
 package com.ktb.interview.application.service;
 
-import com.ktb.ai.feedback.exception.AiFeedbackDependencyFailedException;
-import com.ktb.ai.feedback.exception.AiFeedbackRequestRejectedException;
-import com.ktb.ai.feedback.exception.AiFeedbackRetryableException;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
 import com.ktb.interview.session.mapper.InterviewSessionFeedbackMapper;
-import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
-import com.ktb.interview.dto.ai.InterviewFollowUpQuestionDataResponse;
-import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
 import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
 import com.ktb.interview.session.dto.request.InterviewSessionCreateRequest;
 import com.ktb.interview.session.dto.response.InterviewHistoryResponse;
@@ -17,7 +11,6 @@ import com.ktb.interview.session.dto.response.InterviewSessionStateResponse;
 import com.ktb.interview.session.dto.response.SessionFeedbackFailedResponse;
 import com.ktb.interview.session.dto.response.SessionFeedbackPendingResponse;
 import com.ktb.interview.application.InterviewSessionManagementService;
-import com.ktb.interview.port.out.AiInterviewPort;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSessionFeedback;
 import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
@@ -27,8 +20,10 @@ import com.ktb.interview.session.exception.InterviewSessionInvalidInputException
 import com.ktb.interview.session.exception.InterviewSessionInvalidStateException;
 import com.ktb.interview.session.repository.InterviewSessionFeedbackRepository;
 import com.ktb.interview.session.service.InterviewSessionService;
+import com.ktb.question.domain.Question;
 import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
+import com.ktb.question.repository.QuestionRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -50,21 +45,20 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
     private static final String ERROR_FEEDBACK_NOT_COMPLETED = "session feedback is not completed yet";
     private static final String ERROR_UNSUPPORTED_INTERVIEW_TYPE =
             "interviewType supports only PRACTICE_INTERVIEW or REAL_INTERVIEW";
-    private static final String ERROR_CATEGORY_NOT_SUPPORTED_TEMPLATE =
-            "category is not supported for questionType. category=%s, questionType=%s";
-    private static final String ERROR_FIRST_QUESTION_GENERATION_FAILED = "failed to generate first question from AI";
+    private static final String ERROR_FIRST_QUESTION_NOT_FOUND =
+            "failed to generate first question from question pool";
 
     private final InterviewSessionService interviewSessionService;
     private final InterviewSessionFeedbackRepository feedbackRepository;
-    private final AiInterviewPort aiInterviewPort;
+    private final QuestionRepository questionRepository;
 
     /**
      * 연습/실전 모드별 초기 상태를 세팅해 인터뷰 세션을 생성합니다.
      */
     @Override
     public InterviewSessionCreateResponse createSession(Long accountId, InterviewSessionCreateRequest request) {
-        log.info("createSession - accountId={}, interviewType={}, questionType={}, category={}",
-                accountId, request.interviewType(), request.questionType(), request.category());
+        log.info("createSession - accountId={}, interviewType={}, questionType={}",
+                accountId, request.interviewType(), request.questionType());
         validateSessionCreateRequest(request);
 
         if (request.interviewType() == AnswerType.PRACTICE_INTERVIEW) {
@@ -94,54 +88,28 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
         log.info("Real session skeleton created - accountId={}, sessionId={}, expiresAt={}",
                 accountId, session.getSessionId(), session.getExpiresAt());
 
-        try {
-            FirstQuestionDecision firstQuestionDecision = requestFirstQuestionFromAi(session, request.category());
-            QuestionCategory responseCategory = resolveFirstQuestionCategory(
-                    request.category(),
-                    firstQuestionDecision.category()
-            );
-            InterviewQuestionSnapshot firstQuestion = new InterviewQuestionSnapshot(
-                    null,
-                    firstQuestionDecision.questionText(),
-                    responseCategory
-            );
+        QuestionCategory randomCategory = resolveRandomCategoryForQuestionType(session.getQuestionType());
+        InterviewQuestionSnapshot firstQuestion = resolveFirstQuestionFromDb(session.getQuestionType(), randomCategory);
 
-            TurnType firstTurnType = resolveFirstTurnType(firstQuestionDecision.turnType());
-            Integer firstTopicId = firstQuestionDecision.topicId() == null ? 1 : firstQuestionDecision.topicId();
+        TurnType firstTurnType = TurnType.MAIN;
+        Integer firstTopicId = 1;
+        session.updateNextQuestion(firstQuestion, firstTurnType, firstTopicId);
+        interviewSessionService.save(session);
+        log.info("Real session first question prepared from DB - sessionId={}, topicId={}, turnType={}, category={}",
+                session.getSessionId(), firstTopicId, firstTurnType, firstQuestion.category());
 
-            session.updateNextQuestion(firstQuestion, firstTurnType, firstTopicId);
-            interviewSessionService.save(session);
-            log.info("Real session first question prepared - sessionId={}, topicId={}, turnType={}, category={}",
-                    session.getSessionId(), firstTopicId, firstTurnType, responseCategory);
-
-            return new InterviewSessionCreateResponse(
-                    session.getSessionId(),
-                    session.getInterviewType().name(),
-                    session.getQuestionType().name(),
-                    session.getCurrentQuestion() == null ? null : session.getCurrentQuestion().content(),
-                    session.getCurrentQuestion() == null || session.getCurrentQuestion().category() == null
-                            ? null
-                            : session.getCurrentQuestion().category().name(),
-                    firstTurnType.wireValue(),
-                    firstTopicId,
-                    session.getExpiresAt().toString()
-            );
-        } catch (AiFeedbackRequestRejectedException e) {
-            log.warn("Real session creation rejected by AI - accountId={}, sessionId={}, reason={}",
-                    accountId, session.getSessionId(), e.getMessage());
-            interviewSessionService.deleteSession(session.getSessionId());
-            throw e;
-        } catch (AiFeedbackRetryableException e) {
-            log.warn("Real session creation failed by retryable AI error - accountId={}, sessionId={}, reason={}",
-                    accountId, session.getSessionId(), e.getMessage());
-            interviewSessionService.deleteSession(session.getSessionId());
-            throw new AiFeedbackDependencyFailedException(e.getMessage(), e);
-        } catch (RuntimeException e) {
-            log.warn("Real session creation failed unexpectedly - accountId={}, sessionId={}, reason={}",
-                    accountId, session.getSessionId(), e.getMessage());
-            interviewSessionService.deleteSession(session.getSessionId());
-            throw e;
-        }
+        return new InterviewSessionCreateResponse(
+                session.getSessionId(),
+                session.getInterviewType().name(),
+                session.getQuestionType().name(),
+                session.getCurrentQuestion() == null ? null : session.getCurrentQuestion().content(),
+                session.getCurrentQuestion() == null || session.getCurrentQuestion().category() == null
+                        ? null
+                        : session.getCurrentQuestion().category().name(),
+                firstTurnType.wireValue(),
+                firstTopicId,
+                session.getExpiresAt().toString()
+        );
     }
 
     /**
@@ -244,53 +212,12 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
                 && request.interviewType() != AnswerType.REAL_INTERVIEW) {
             throw new InterviewSessionInvalidInputException(ERROR_UNSUPPORTED_INTERVIEW_TYPE);
         }
-
-        if (request.category() != null && !request.category().supports(request.questionType())) {
-            throw new InterviewSessionInvalidInputException(
-                    String.format(ERROR_CATEGORY_NOT_SUPPORTED_TEMPLATE, request.category(), request.questionType())
-            );
-        }
     }
 
     /**
-     * 실전 세션 생성 시 AI 서버에 첫 질문 생성을 요청합니다.
+     * questionType 기준으로 지원되는 카테고리를 랜덤 선택합니다.
      */
-    private FirstQuestionDecision requestFirstQuestionFromAi(InterviewSession session, QuestionCategory requestedCategory) {
-        QuestionCategory initialCategory = resolveInitialCategoryForFirstQuestion(session.getQuestionType(), requestedCategory);
-        log.debug("requestFirstQuestionFromAi - sessionId={}, questionType={}, requestedCategory={}, initialCategory={}",
-                session.getSessionId(), session.getQuestionType(), requestedCategory, initialCategory);
-        InterviewFollowUpQuestionRequest aiRequest = new InterviewFollowUpQuestionRequest(
-                session.getAccountId(),
-                session.getSessionId(),
-                session.getQuestionType().name(),
-                initialCategory,
-                List.of()
-        );
-
-        InterviewFollowUpQuestionApiResponse aiResponse = aiInterviewPort.requestFollowUpQuestion(aiRequest);
-        InterviewFollowUpQuestionDataResponse data = aiResponse.data();
-
-        boolean isSessionEnded = "session_ended".equalsIgnoreCase(aiResponse.message())
-                || Boolean.TRUE.equals(data.isSessionEnded());
-        if (isSessionEnded || data.questionText() == null || data.questionText().isBlank()) {
-            throw new InterviewSessionInvalidStateException(ERROR_FIRST_QUESTION_GENERATION_FAILED);
-        }
-        log.debug("First question from AI received - sessionId={}, topicId={}, turnType={}, category={}",
-                session.getSessionId(), data.topicId(), data.turnType(), data.category());
-
-        return new FirstQuestionDecision(
-                data.questionText(),
-                data.category(),
-                data.turnType(),
-                data.topicId()
-        );
-    }
-
-    private QuestionCategory resolveInitialCategoryForFirstQuestion(QuestionType questionType, QuestionCategory requestedCategory) {
-        if (requestedCategory != null) {
-            return requestedCategory;
-        }
-
+    private QuestionCategory resolveRandomCategoryForQuestionType(QuestionType questionType) {
         List<QuestionCategory> candidates = new ArrayList<>();
         for (QuestionCategory category : QuestionCategory.values()) {
             if (category.supports(questionType)) {
@@ -306,48 +233,14 @@ public class InterviewSessionManagementServiceImpl implements InterviewSessionMa
     }
 
     /**
-     * AI 첫 질문 turn_type을 내부 enum으로 파싱합니다.
+     * 랜덤 카테고리/질문타입 기준으로 첫 질문을 DB에서 조회합니다.
      */
-    private TurnType resolveFirstTurnType(String turnType) {
-        if (turnType == null || turnType.isBlank()) {
-            return TurnType.MAIN;
-        }
-        try {
-            return TurnType.fromWireValue(turnType);
-        } catch (IllegalArgumentException ignored) {
-            return TurnType.MAIN;
-        }
-    }
-
-    /**
-     * 첫 질문 카테고리 우선순위: 사용자 요청 > AI 응답 category.
-     */
-    private QuestionCategory resolveFirstQuestionCategory(
-            QuestionCategory requestCategory,
-            String aiResponseCategory
-    ) {
-        if (requestCategory != null) {
-            return requestCategory;
-        }
-        return parseQuestionCategory(aiResponseCategory);
-    }
-
-    private QuestionCategory parseQuestionCategory(String category) {
-        if (category == null || category.isBlank()) {
-            return null;
-        }
-        try {
-            return QuestionCategory.valueOf(category.trim());
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
-    private record FirstQuestionDecision(
-            String questionText,
-            String category,
-            String turnType,
-            Integer topicId
-    ) {
+    private InterviewQuestionSnapshot resolveFirstQuestionFromDb(QuestionType questionType, QuestionCategory randomCategory) {
+        Optional<Question> question = randomCategory == null
+                ? Optional.empty()
+                : questionRepository.findRandomActiveByTypeAndCategory(questionType.name(), randomCategory.name());
+        Question selected = question.orElseGet(() -> questionRepository.findRandomActiveByType(questionType.name())
+                .orElseThrow(() -> new InterviewSessionInvalidStateException(ERROR_FIRST_QUESTION_NOT_FOUND)));
+        return new InterviewQuestionSnapshot(selected.getId(), selected.getContent(), selected.getCategory());
     }
 }
