@@ -1,11 +1,7 @@
-package com.ktb.interview.dto.response.session;
+package com.ktb.interview.session.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.ktb.interview.dto.ai.InterviewBadCaseFeedbackResponse;
-import com.ktb.interview.dto.ai.InterviewKeywordResultResponse;
-import com.ktb.interview.dto.ai.InterviewOverallFeedbackResponse;
-import com.ktb.interview.dto.ai.InterviewTopicFeedbackResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -34,21 +30,21 @@ public record InterviewSessionFinalFeedbackResponse(
 
         @JsonProperty("bad_case_feedback")
         @Schema(description = "Bad case 피드백")
-        InterviewBadCaseFeedbackResponse badCaseFeedback,
+        InterviewSessionBadCaseFeedbackResponse badCaseFeedback,
 
         @Schema(description = "평가 지표 목록")
         List<InterviewFinalFeedbackMetricResponse> metrics,
 
         @JsonProperty("keyword_result")
         @Schema(description = "키워드 결과")
-        InterviewKeywordResultResponse keywordResult,
+        InterviewSessionKeywordResultResponse keywordResult,
 
         @JsonProperty("topics_feedback")
         @Schema(description = "토픽별 피드백")
-        List<InterviewTopicFeedbackResponse> topicsFeedback,
+        List<InterviewSessionTopicFeedbackResponse> topicsFeedback,
 
         @JsonProperty("overall_feedback")
         @Schema(description = "종합 피드백")
-        InterviewOverallFeedbackResponse overallFeedback
+        InterviewSessionOverallFeedbackResponse overallFeedback
 ) {
 }

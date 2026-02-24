@@ -3,19 +3,25 @@ package com.ktb.interview.application.service;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
-import com.ktb.interview.application.mapper.InterviewSessionFeedbackMapper;
+import com.ktb.interview.session.mapper.InterviewSessionFeedbackMapper;
+import com.ktb.interview.dto.ai.InterviewBadCaseFeedbackResponse;
 import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
 import com.ktb.interview.dto.ai.InterviewFeedbackMetricResponse;
 import com.ktb.interview.dto.ai.InterviewHistoryRequest;
 import com.ktb.interview.dto.ai.InterviewKeywordResultResponse;
 import com.ktb.interview.dto.ai.InterviewOverallFeedbackResponse;
-import com.ktb.interview.dto.request.PracticeAnswerSubmitRequest;
-import com.ktb.interview.dto.request.RealAnswerSubmitRequest;
-import com.ktb.interview.dto.response.session.InterviewNextQuestionTurnResponse;
-import com.ktb.interview.dto.response.session.InterviewFinalFeedbackMetricResponse;
-import com.ktb.interview.dto.response.session.InterviewPracticeSubmitResponse;
-import com.ktb.interview.dto.response.session.InterviewRealSubmitResponse;
-import com.ktb.interview.dto.response.session.InterviewSessionFinalFeedbackResponse;
+import com.ktb.interview.dto.ai.InterviewTopicFeedbackResponse;
+import com.ktb.interview.session.dto.request.PracticeAnswerSubmitRequest;
+import com.ktb.interview.session.dto.request.RealAnswerSubmitRequest;
+import com.ktb.interview.session.dto.response.InterviewSessionBadCaseFeedbackResponse;
+import com.ktb.interview.session.dto.response.InterviewNextQuestionTurnResponse;
+import com.ktb.interview.session.dto.response.InterviewFinalFeedbackMetricResponse;
+import com.ktb.interview.session.dto.response.InterviewSessionKeywordResultResponse;
+import com.ktb.interview.session.dto.response.InterviewSessionOverallFeedbackResponse;
+import com.ktb.interview.session.dto.response.InterviewPracticeSubmitResponse;
+import com.ktb.interview.session.dto.response.InterviewRealSubmitResponse;
+import com.ktb.interview.session.dto.response.InterviewSessionFinalFeedbackResponse;
+import com.ktb.interview.session.dto.response.InterviewSessionTopicFeedbackResponse;
 import com.ktb.answer.exception.AnswerNotFoundException;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.answer.service.AnswerDomainService;
@@ -27,6 +33,7 @@ import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
 import com.ktb.interview.session.domain.InterviewSessionFeedback;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.domain.InterviewSessionStatus;
+import com.ktb.interview.session.config.InterviewSessionProperties;
 import com.ktb.interview.session.exception.InterviewSessionInvalidInputException;
 import com.ktb.interview.session.exception.InterviewSessionInvalidStateException;
 import com.ktb.interview.session.repository.InterviewSessionFeedbackRepository;
@@ -66,7 +73,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class InterviewSubmissionServiceImpl implements InterviewSubmissionService {
 
-    private static final int REAL_MAX_TURN = 15;
     private static final String SESSION_STATUS_IN_PROGRESS = InterviewSessionStatus.IN_PROGRESS.name();
     private static final String SESSION_STATUS_COMPLETED = InterviewSessionStatus.COMPLETED.name();
     private static final String ERROR_CURRENT_QUESTION_NOT_PREPARED = "current question is not prepared for session";
@@ -76,7 +82,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     private static final String ERROR_INTERVIEW_HISTORY_GAP_TEMPLATE =
             "interviewHistory.turn_order has a gap. expected=%d, actual=%d";
     private static final String ERROR_NO_NEW_INTERVIEW_TURN = "no new interview turn to append";
-    private static final String ERROR_REAL_MAX_TURN_REACHED = "max turn reached for real interview session";
     private static final String ERROR_AI_FOLLOW_UP_QUESTION_EMPTY = "AI follow-up question is empty";
     private static final String ERROR_PRACTICE_ALREADY_SUBMITTED =
             "practice interview answer already submitted. request final feedback";
@@ -98,6 +103,8 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             "answerText must be between 2 and 1500 characters";
     private static final String ERROR_OPTIONAL_QUESTION_TYPE_MISMATCH_TEMPLATE =
             "questionType mismatch. expected=%s, actual=%s";
+    private static final String MESSAGE_REAL_MAX_TURN_REACHED_TEMPLATE =
+            "최대 답변 횟수(%d회)에 도달하여 면접이 종료되었습니다. 최종 피드백을 요청해주세요.";
 
     private final AnswerRepository answerRepository;
     private final AnswerDomainService answerDomainService;
@@ -106,6 +113,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     private final AnswerHashtagRepository answerHashtagRepository;
     private final MetricRepository metricRepository;
     private final AnswerMetricRepository answerMetricRepository;
+    private final InterviewSessionProperties interviewSessionProperties;
     private final InterviewSessionService interviewSessionService;
     private final InterviewSessionFeedbackRepository feedbackRepository;
     private final SessionFeedbackOrchestrator sessionFeedbackOrchestrator;
@@ -185,8 +193,27 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
 
         List<InterviewHistoryRequest> historyForFollowUp = resolveRealHistoryForFollowUp(session, answerText);
         validateRequestQuestionSync(request.question(), currentQuestionSnapshot.content(), session.getSessionId());
-        validateRealTurnLimit(session, historyForFollowUp);
         syncSessionHistoryFromRequest(session, historyForFollowUp);
+
+        int realMaxTurn = resolveRealMaxTurn();
+        if (session.getTurnCount() >= realMaxTurn) {
+            Integer nextTopicId = session.getCurrentTopicId() == null ? 1 : session.getCurrentTopicId();
+            InterviewQuestionSnapshot endedQuestion = resolveEndedQuestion(
+                    session,
+                    String.format(MESSAGE_REAL_MAX_TURN_REACHED_TEMPLATE, realMaxTurn)
+            );
+            session.updateNextQuestion(endedQuestion, TurnType.SESSION_END, nextTopicId);
+            interviewSessionService.save(session);
+            log.info("submitReal reached max turn - sessionId={}, turnCount={}, maxTurn={}",
+                    session.getSessionId(), session.getTurnCount(), realMaxTurn);
+            return toRealTurnResponse(
+                    session.getSessionId(),
+                    endedQuestion,
+                    TurnType.SESSION_END,
+                    nextTopicId,
+                    true
+            );
+        }
 
         SessionFollowUpOrchestrator.FollowUpDecision followUpDecision =
                 sessionFollowUpOrchestrator.decideNext(
@@ -207,7 +234,7 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             InterviewRealSubmitResponse badCaseResponse = new InterviewRealSubmitResponse(
                     session.getSessionId(),
                     SESSION_STATUS_IN_PROGRESS,
-                    followUpDecision.badCaseFeedback(),
+                    toSessionBadCaseFeedback(followUpDecision.badCaseFeedback()),
                     null,
                     false
             );
@@ -551,21 +578,6 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
     }
 
     /**
-     * 요청 누적 이력을 반영했을 때 최대 turn 수를 초과하는지 사전 검증합니다.
-     */
-    private void validateRealTurnLimit(InterviewSession session, List<InterviewHistoryRequest> requestHistory) {
-        int existingCount = session.getInterviewHistoryView().size();
-        int maxTurnOrder = existingCount - 1;
-        for (InterviewHistoryRequest turn : requestHistory) {
-            maxTurnOrder = Math.max(maxTurnOrder, turn.turnOrder());
-        }
-        int finalTurnCount = maxTurnOrder + 1;
-        if (finalTurnCount > REAL_MAX_TURN) {
-            throw new InterviewSessionInvalidStateException(ERROR_REAL_MAX_TURN_REACHED);
-        }
-    }
-
-    /**
      * 저장된 세션 이력 아이템을 AI history 요청 포맷으로 변환합니다.
      */
     private InterviewHistoryRequest toAiHistoryRequest(InterviewHistoryItem item) {
@@ -636,9 +648,17 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
             InterviewSession session,
             SessionFollowUpOrchestrator.FollowUpDecision followUpDecision
     ) {
+        int realMaxTurn = resolveRealMaxTurn();
         return TurnType.SESSION_END.wireValue().equalsIgnoreCase(followUpDecision.nextTurnType())
                 || followUpDecision.shouldEnd()
-                || session.getTurnCount() >= REAL_MAX_TURN;
+                || session.getTurnCount() >= realMaxTurn;
+    }
+
+    /**
+     * 실전 모드 최대 turn 설정값을 조회합니다.
+     */
+    private int resolveRealMaxTurn() {
+        return interviewSessionProperties.getRealMaxTurn();
     }
 
     /**
@@ -840,11 +860,65 @@ public class InterviewSubmissionServiceImpl implements InterviewSubmissionServic
                 questionId,
                 feedback.sessionId(),
                 feedback.status(),
-                feedback.badCaseFeedback(),
+                toSessionBadCaseFeedback(feedback.badCaseFeedback()),
                 metrics,
-                feedback.keywordResult(),
-                feedback.topicsFeedback(),
-                feedback.overallFeedback()
+                toSessionKeywordResult(feedback.keywordResult()),
+                toSessionTopicsFeedback(feedback.topicsFeedback()),
+                toSessionOverallFeedback(feedback.overallFeedback())
+        );
+    }
+
+    private InterviewSessionBadCaseFeedbackResponse toSessionBadCaseFeedback(
+            InterviewBadCaseFeedbackResponse badCaseFeedback
+    ) {
+        if (badCaseFeedback == null) {
+            return null;
+        }
+        return new InterviewSessionBadCaseFeedbackResponse(
+                badCaseFeedback.type(),
+                badCaseFeedback.message(),
+                badCaseFeedback.guidance()
+        );
+    }
+
+    private InterviewSessionKeywordResultResponse toSessionKeywordResult(
+            InterviewKeywordResultResponse keywordResult
+    ) {
+        if (keywordResult == null) {
+            return null;
+        }
+        return new InterviewSessionKeywordResultResponse(
+                keywordResult.coveredKeywords(),
+                keywordResult.missingKeywords(),
+                keywordResult.coverageRatio()
+        );
+    }
+
+    private List<InterviewSessionTopicFeedbackResponse> toSessionTopicsFeedback(
+            List<InterviewTopicFeedbackResponse> topicsFeedback
+    ) {
+        if (topicsFeedback == null) {
+            return null;
+        }
+        return topicsFeedback.stream()
+                .map(topic -> new InterviewSessionTopicFeedbackResponse(
+                        topic.topicId(),
+                        topic.mainQuestion(),
+                        topic.strengths(),
+                        topic.improvements()
+                ))
+                .toList();
+    }
+
+    private InterviewSessionOverallFeedbackResponse toSessionOverallFeedback(
+            InterviewOverallFeedbackResponse overallFeedback
+    ) {
+        if (overallFeedback == null) {
+            return null;
+        }
+        return new InterviewSessionOverallFeedbackResponse(
+                overallFeedback.strengths(),
+                overallFeedback.improvements()
         );
     }
 
