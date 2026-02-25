@@ -74,3 +74,9 @@ aws:
   credentials:
     access-key: test-access-key
     secret-key: test-secret-key
+
+interview:
+  session:
+    practice-ttl: PT10M
+    real-ttl: PT90M
+    real-max-turn: 3

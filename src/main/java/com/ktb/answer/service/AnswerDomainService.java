@@ -3,7 +3,6 @@ package com.ktb.answer.service;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
-import com.ktb.answer.dto.AnswerDetailQuery;
 import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.response.list.AnswerListResponse;
 import com.ktb.answer.exception.AnswerAccessDeniedException;
@@ -66,5 +65,5 @@ public interface AnswerDomainService {
     /**
      * 답변 상세 조회 (본인 답변만)
      */
-    AnswerDetailResult getDetail(Long accountId, Long answerId, AnswerDetailQuery query);
+    AnswerDetailResult getDetail(Long accountId, Long answerId);
 }

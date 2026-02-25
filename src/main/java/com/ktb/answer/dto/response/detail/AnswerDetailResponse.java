@@ -4,6 +4,7 @@ import com.ktb.answer.dto.AiFeedbackSummary;
 import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.response.common.KeywordCheck;
 import com.ktb.answer.dto.response.common.MetricScore;
+import com.ktb.interview.session.dto.response.InterviewSessionFinalFeedbackResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -27,14 +28,17 @@ public record AnswerDetailResponse(
         @Schema(description = "답변 작성 시각", example = "2026-01-22T10:30:00")
         String createdAt,
 
-        @Schema(description = "질문 상세 정보 (expand=question 시 포함)")
+        @Schema(description = "질문 상세 정보 (PRACTICE_INTERVIEW일 때 포함)")
         QuestionDetail question,
 
-        @Schema(description = "즉각 피드백 정보 (expand=immediate_feedback 시 포함)")
+        @Schema(description = "즉각 피드백 정보 (PRACTICE_INTERVIEW일 때 포함)")
         ImmediateFeedbackDetail immediateFeedback,
 
-        @Schema(description = "AI 피드백 정보 (expand=feedback 시 포함)")
-        AiFeedbackDetail aiFeedback
+        @Schema(description = "AI 피드백 정보 (PRACTICE_INTERVIEW일 때 포함)")
+        AiFeedbackDetail aiFeedback,
+
+        @Schema(description = "실전 모드 세션 최종 피드백 (REAL_INTERVIEW일 때 포함)")
+        InterviewSessionFinalFeedbackResponse sessionFinalFeedback
 ) {
     /**
      * AnswerDetailResult를 AnswerDetailResponse로 변환하는 정적 팩토리 메서드
@@ -85,7 +89,8 @@ public record AnswerDetailResponse(
             result.answer() == null ? null : result.answer().answeredAt(),
             questionDetail,
             immediateFeedbackDetail,
-            aiFeedbackDetail
+            aiFeedbackDetail,
+            result.sessionFinalFeedback()
         );
     }
 }
