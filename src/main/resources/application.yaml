@@ -66,9 +66,9 @@ jwt:
 aws:
   region: ${AWS_REGION:ap-northeast-2}
   s3:
-    bucket-name: ${AWS_S3_BUCKET_NAME}
+    upload-bucket-name: ${AWS_S3_UPLOAD_BUCKET_NAME}
+    tts-bucket-name: ${AWS_S3_TTS_BUCKET_NAME}
     cdn-url-prefix: ${AWS_S3_CDN_URL_PREFIX}
-    key-prefix: ${AWS_S3_KEY_PREFIX}
   credentials:
     access-key: ${AWS_ACCESS_KEY_ID}
     secret-key: ${AWS_SECRET_ACCESS_KEY}

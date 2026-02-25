@@ -18,7 +18,6 @@ import com.ktb.file.service.S3PresignedUrlService;
 import com.ktb.file.util.SizeUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -50,9 +49,6 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     private final S3Presigner s3Presigner;
 
     private final S3Config s3Config;
-
-    @Value("${aws.s3.key-prefix:uploads}")
-    private String keyPrefix;
 
     @Override
     @Transactional
@@ -102,7 +98,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     public boolean isFileExistsInS3(String s3Key) {
         try {
             HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
-                .bucket(s3Config.getS3().getBucketName())
+                .bucket(s3Config.getS3().getUploadBucketName())
                 .key(s3Key)
                 .build();
             s3Client.headObject(headObjectRequest);
@@ -114,7 +110,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
 
     private String generateS3PresignedUrl(String s3Key, String contentType) {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-            .bucket(s3Config.getS3().getBucketName())
+            .bucket(s3Config.getS3().getUploadBucketName())
             .key(s3Key)
             .contentType(contentType)
             .build();
@@ -131,7 +127,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
 
     private String generateS3PresignedGetUrl(String s3Key) {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(s3Config.getS3().getBucketName())
+                .bucket(s3Config.getS3().getUploadBucketName())
                 .key(s3Key)
                 .build();
 
@@ -178,8 +174,9 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         return UUID.randomUUID().toString() + "." + extension;
     }
 
-    private String buildS3Key(FileCategory category, String storedName) {
-        return normalizeKeyPrefix() + "/" + category.name().toLowerCase() + "/" + storedName;
+    private String buildS3Key(FileCategory category, String originalName) {
+        String categoryPrefix = category.getS3Directory();
+        return categoryPrefix + "/" + originalName;
     }
 
     private String buildCdnUrl(String s3Key) {
@@ -191,7 +188,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
 
         String extension = extractExtension(request.fileName());
         String storedName = generateStoredName(extension);
-        String s3Key = buildS3Key(request.category(), storedName);
+        String s3Key = buildS3Key(request.category(), request.fileName());
 
         File fileEntity = File.builder()
                 .originalName(request.fileName())
@@ -243,13 +240,6 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
 
     private PresignedUrlMethod resolveMethod(PresignedUrlRequest request) {
         return request.method() != null ? request.method() : PresignedUrlMethod.PUT;
-    }
-
-    private String normalizeKeyPrefix() {
-        if (keyPrefix == null || keyPrefix.trim().isEmpty()) {
-            return "uploads";
-        }
-        return keyPrefix.endsWith("/") ? keyPrefix.substring(0, keyPrefix.length() - 1) : keyPrefix;
     }
 
     private String normalizeCdnPrefix() {
