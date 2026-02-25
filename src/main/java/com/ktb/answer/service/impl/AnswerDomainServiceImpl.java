@@ -8,7 +8,6 @@ import com.ktb.answer.domain.AnswerStatus;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.dto.AiFeedbackSummary;
 import com.ktb.answer.dto.AnswerContentResult;
-import com.ktb.answer.dto.AnswerDetailQuery;
 import com.ktb.answer.dto.AnswerDetailResult;
 import com.ktb.answer.dto.AnswerListCursor;
 import com.ktb.answer.dto.FeedbackStatus;
@@ -41,6 +40,9 @@ import com.ktb.question.domain.QuestionCategory;
 import com.ktb.question.domain.QuestionType;
 import com.ktb.question.exception.QuestionNotFoundException;
 import com.ktb.question.repository.QuestionRepository;
+import com.ktb.interview.application.service.flow.InterviewSessionFeedbackQueryFlowService;
+import com.ktb.interview.session.dto.response.InterviewSessionFinalFeedbackResponse;
+import com.ktb.interview.session.exception.InterviewSessionInvalidStateException;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -67,6 +69,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
     private final AnswerRepository answerRepository;
     private final AnswerHashtagRepository answerHashtagRepository;
     private final AnswerMetricRepository answerMetricRepository;
+    private final InterviewSessionFeedbackQueryFlowService interviewSessionFeedbackQueryFlowService;
 
     private final JsonMapper jsonMapper = JsonMapper.builder()
             .addModule(new JavaTimeModule())
@@ -90,6 +93,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
         log.debug("Validating ownership for answerId: {}, accountId: {}", answer.getId(), accountId);
 
         if (!answer.isOwnedBy(accountId)) {
+            log.warn("Answer access denied - answerId={}, requestedAccountId={}", answer.getId(), accountId);
             throw new AnswerAccessDeniedException(answer.getId(), accountId);
         }
     }
@@ -114,6 +118,8 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
 
         boolean hasText = answerText != null && !answerText.isBlank();
         if (!hasText || answerText.length() > MAX_ANSWER_CONTENT_LENGTH) {
+            log.warn("Invalid answer content - hasText={}, length={}",
+                    hasText, answerText == null ? null : answerText.length());
             throw new AnswerInvalidContentException();
         }
     }
@@ -167,11 +173,11 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
     }
 
     @Override
-    public AnswerDetailResult getDetail(Long accountId, Long answerId, AnswerDetailQuery query) {
-        log.info("getAnswerDetail - accountId={}, answerId={}, includeQuestion={}, includeImmediateFeedback={}, includeFeedback={}",
-                accountId, answerId, query.includeQuestion(), query.includeImmediateFeedback(), query.includeFeedback());
+    public AnswerDetailResult getDetail(Long accountId, Long answerId) {
+        log.info("getAnswerDetail - accountId={}, answerId={}", accountId, answerId);
         Answer answer = answerRepository.findByIdWithQuestion(answerId);
         if (answer == null) {
+            log.warn("getAnswerDetail not found - accountId={}, answerId={}", accountId, answerId);
             throw new AnswerNotFoundException(answerId);
         }
         validateOwnership(answer, accountId);
@@ -183,8 +189,10 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
                 answer.getCreatedAt() == null ? null : answer.getCreatedAt().toString()
         );
 
+        boolean isRealInterview = answer.getType() == AnswerType.REAL_INTERVIEW;
+
         QuestionSummary questionSummary = null;
-        if (query.includeQuestion()) {
+        if (!isRealInterview) {
             Question question = answer.getQuestion();
             questionSummary = new QuestionSummary(
                     question.getId(),
@@ -195,13 +203,20 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
         }
 
         ImmediateFeedbackResult immediateFeedback = null;
-        if (query.includeImmediateFeedback()) {
+        if (!isRealInterview) {
             immediateFeedback = loadImmediateFeedback(answerId);
         }
 
         AiFeedbackSummary aiFeedback = null;
-        if (query.includeFeedback()) {
+        if (!isRealInterview) {
             aiFeedback = loadAiFeedback(answer);
+        }
+
+        InterviewSessionFinalFeedbackResponse sessionFinalFeedback = null;
+        if (isRealInterview) {
+            sessionFinalFeedback = loadRealInterviewSessionFinalFeedback(accountId, answer);
+            log.debug("getAnswerDetail real mode session feedback resolved - accountId={}, answerId={}, hasFeedback={}",
+                    accountId, answerId, sessionFinalFeedback != null);
         }
 
         AnswerDetailResult result = new AnswerDetailResult(
@@ -211,11 +226,50 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
                 questionSummary,
                 answerContent,
                 immediateFeedback,
-                aiFeedback
+                aiFeedback,
+                sessionFinalFeedback
         );
         log.info("getAnswerDetail completed - accountId={}, answerId={}, status={}",
                 accountId, answerId, answer.getStatus());
         return result;
+    }
+
+    private InterviewSessionFinalFeedbackResponse loadRealInterviewSessionFinalFeedback(Long accountId, Answer answer) {
+        if (answer.getStatus() != AnswerStatus.COMPLETED) {
+            log.debug("getAnswerDetail real mode final feedback skipped - answerId={}, status={}",
+                    answer.getId(), answer.getStatus());
+            return null;
+        }
+
+        String sessionId = answer.getSessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            log.warn("getAnswerDetail real mode sessionId missing - accountId={}, answerId={}",
+                    accountId, answer.getId());
+            return null;
+        }
+
+        InterviewSessionFinalFeedbackResponse sessionFeedback;
+        try {
+            sessionFeedback = interviewSessionFeedbackQueryFlowService.getSessionFeedbackCompleted(accountId, sessionId);
+        } catch (InterviewSessionInvalidStateException e) {
+            log.warn("getAnswerDetail real mode final feedback unavailable - accountId={}, answerId={}, sessionId={}, reason={}",
+                    accountId, answer.getId(), sessionId, e.getMessage());
+            return null;
+        }
+
+        return new InterviewSessionFinalFeedbackResponse(
+                answer.getId(),
+                sessionFeedback.userId(),
+                sessionFeedback.questionId(),
+                sessionFeedback.sessionId(),
+                sessionFeedback.status(),
+                sessionFeedback.badCaseFeedback(),
+                sessionFeedback.metrics(),
+                sessionFeedback.keywordResult(),
+                sessionFeedback.topicsFeedback(),
+                sessionFeedback.overallFeedback(),
+                sessionFeedback.interviewHistory()
+        );
     }
 
     private ImmediateFeedbackResult loadImmediateFeedback(Long answerId) {
@@ -263,6 +317,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
         LocalDate resolvedFrom = dateFrom == null ? resolvedTo.minusMonths(1) : dateFrom;
 
         if (resolvedFrom.isAfter(resolvedTo)) {
+            log.warn("Invalid date range - dateFrom={}, dateTo={}", resolvedFrom, resolvedTo);
             throw new AnswerListInvalidInputException("dateFrom must be before or equal to dateTo");
         }
 
@@ -272,6 +327,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
     private int resolveLimit(Integer limit) {
         int resolved = limit == null ? 10 : limit;
         if (resolved < 1 || resolved > 50) {
+            log.warn("Invalid list limit - limit={}", resolved);
             throw new AnswerListInvalidInputException("limit must be between 1 and 50");
         }
         return resolved;
@@ -283,6 +339,7 @@ public class AnswerDomainServiceImpl implements AnswerDomainService {
         }
 
         if (questionType == QuestionType.PORTFOLIO) {
+            log.warn("Unsupported questionType filter for answer list - questionType={}", questionType);
             throw new AnswerListInvalidInputException(
                     "questionType is only supported for [CS, SYSTEM_DESIGN]"
             );
