@@ -81,9 +81,6 @@ aws:
     upload-bucket-name: test-upload-bucket
     tts-bucket-name: test-tts-bucket
     cdn-url-prefix: https://cdn.test.local
-  credentials:
-    access-key: test-access-key
-    secret-key: test-secret-key
 
 interview:
   session:
