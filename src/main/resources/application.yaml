@@ -39,6 +39,14 @@ spring:
             token-uri: https://kauth.kakao.com/oauth/token
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION}
+      parameterstore:
+        enabled: ${AWS_PARAMETER_STORE_ENABLED:true}
+  config:
+    import: ${SPRING_CONFIG_IMPORT:optional:aws-parameterstore:/qfeed/dev/be/}
 
   jpa:
     hibernate:
@@ -64,7 +72,7 @@ jwt:
   refresh-token-expiration: 1209600000  # 14일 (ms)
 
 aws:
-  region: ${AWS_REGION:ap-northeast-2}
+  region: ${AWS_REGION}
   s3:
     upload-bucket-name: ${AWS_S3_UPLOAD_BUCKET_NAME}
     tts-bucket-name: ${AWS_S3_TTS_BUCKET_NAME}
