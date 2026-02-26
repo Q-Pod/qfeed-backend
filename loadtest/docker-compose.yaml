@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: qfeed-loadtest-postgres
+    restart: unless-stopped
+    ports:
+      - "${LOADTEST_PG_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${LOADTEST_POSTGRES_DB:-qfeed}
+      POSTGRES_USER: ${LOADTEST_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${LOADTEST_POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - loadtest-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${LOADTEST_POSTGRES_USER:-postgres} -d ${LOADTEST_POSTGRES_DB:-qfeed}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  loadtest-postgres-data:

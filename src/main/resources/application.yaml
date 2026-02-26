@@ -8,7 +8,7 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
 
   security:
-    is-authenticated: true
+    is-authenticated: false
     permit-all-endpoints:
       - "/"
       - "/error"
@@ -156,15 +156,15 @@ abuse:
 
     # Guard 활성화 설정
     rate-limit:
-      enabled: ${ABUSE_GUARD_RATE_LIMIT_ENABLED:true}
+      enabled: ${ABUSE_GUARD_RATE_LIMIT_ENABLED:false}
     content-quality:
-      enabled: ${ABUSE_GUARD_CONTENT_QUALITY_ENABLED:true}
+      enabled: ${ABUSE_GUARD_CONTENT_QUALITY_ENABLED:false}
     duplicate:
-      enabled: ${ABUSE_GUARD_DUPLICATE_ENABLED:true}
+      enabled: ${ABUSE_GUARD_DUPLICATE_ENABLED:false}
     quality-score:
-      enabled: ${ABUSE_GUARD_QUALITY_SCORE_ENABLED:true}
+      enabled: ${ABUSE_GUARD_QUALITY_SCORE_ENABLED:false}
     quota:
-      enabled: ${ABUSE_GUARD_QUOTA_ENABLED:true}
+      enabled: ${ABUSE_GUARD_QUOTA_ENABLED:false}
 
 interview:
   session:
