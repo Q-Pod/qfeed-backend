@@ -87,3 +87,8 @@ interview:
     practice-ttl: PT10M
     real-ttl: PT90M
     real-max-turn: 3
+    cleanup-interval-ms: 300000
+
+file:
+  multipart:
+    cleanup-interval-ms: 600000

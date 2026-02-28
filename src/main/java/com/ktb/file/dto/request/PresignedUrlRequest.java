@@ -21,8 +21,7 @@ public record PresignedUrlRequest(
         String mimeType,
 
         @JsonProperty("category")
-        @Schema(description = "파일 카테고리", example = "AUDIO", requiredMode = Schema.RequiredMode.REQUIRED,
-                allowableValues = {"PROFILE", "ARCHITECTURE", "ATTACHMENT", "TEMP", "AUDIO", "VIDEO"})
+        @Schema(description = "파일 카테고리", example = "AUDIO", requiredMode = Schema.RequiredMode.REQUIRED)
         FileCategory category,
 
         @JsonProperty("method")
