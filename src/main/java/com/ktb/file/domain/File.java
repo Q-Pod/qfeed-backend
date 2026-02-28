@@ -48,6 +48,7 @@ public class File extends BaseTimeEntity {
     private static final int MIME_TYPE_MAX_LENGTH = 100;
     private static final int URL_MAX_LENGTH = 2000;
     private static final int HASH_LENGTH = 64;
+    private static final int MULTIPART_UPLOAD_ID_MAX_LENGTH = 300;
     private static final long MIN_FILE_SIZE = 0L;
     private static final long TEMP_CLEANUP_DAYS = 1L;
     private static final long PERMANENT_DELETE_DAYS = 7L;
@@ -99,6 +100,12 @@ public class File extends BaseTimeEntity {
     @Column(name = "upload_status", nullable = false, length = 20)
     private FileUploadStatus uploadStatus = FileUploadStatus.UPLOADED;
 
+    @Column(name = "multipart_upload_id", length = MULTIPART_UPLOAD_ID_MAX_LENGTH)
+    private String multipartUploadId;
+
+    @Column(name = "multipart_started_at")
+    private LocalDateTime multipartStartedAt;
+
     @Builder
     private File(
             String originalName,
@@ -111,7 +118,9 @@ public class File extends BaseTimeEntity {
             StorageType storageType,
             FileCategory category,
             String url,
-            FileUploadStatus uploadStatus
+            FileUploadStatus uploadStatus,
+            String multipartUploadId,
+            LocalDateTime multipartStartedAt
     ) {
         validateFile(originalName, storedName, path, extension, size, mimeType);
 
@@ -126,11 +135,23 @@ public class File extends BaseTimeEntity {
         this.category = category;
         this.url = url;
         this.uploadStatus = uploadStatus != null ? uploadStatus : FileUploadStatus.UPLOADED;
+        this.multipartUploadId = multipartUploadId;
+        this.multipartStartedAt = multipartStartedAt;
         this.fileCreatedAt = LocalDateTime.now();
     }
 
     public void setUploadStatus(FileUploadStatus uploadStatus) {
         this.uploadStatus = uploadStatus;
+    }
+
+    public void startMultipartUpload(String uploadId, LocalDateTime startedAt) {
+        this.multipartUploadId = uploadId;
+        this.multipartStartedAt = startedAt;
+    }
+
+    public void clearMultipartUpload() {
+        this.multipartUploadId = null;
+        this.multipartStartedAt = null;
     }
 
     public static File create(

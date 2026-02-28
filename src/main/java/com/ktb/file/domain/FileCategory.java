@@ -42,16 +42,16 @@ public enum FileCategory {
             "음성 파일",
             "audio",
             10 * 1024 * 1024L, // 10MB
-            Arrays.asList("mp3", "wav", "m4a"),
-            Arrays.asList("audio/mpeg", "audio/wav", "audio/x-m4a", "audio/mp4")
+            Arrays.asList("mp3", "wav", "m4a", "webm"),
+            Arrays.asList("audio/mpeg", "audio/wav", "audio/x-m4a", "audio/mp4", "audio/webm")
     ),
 
     VIDEO(
             "비디오 파일",
             "video",
             100 * 1024 * 1024L, // 100MB
-            Arrays.asList("mp4", "mov", "avi"),
-            Arrays.asList("video/mp4", "video/quicktime", "video/x-msvideo")
+            Arrays.asList("mp4", "webm", "mov", "avi"),
+            Arrays.asList("video/mp4", "video/webm", "video/quicktime", "video/x-msvideo")
     );
 
     private final String description;
