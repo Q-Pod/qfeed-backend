@@ -46,7 +46,7 @@ spring:
       parameterstore:
         enabled: ${AWS_PARAMETER_STORE_ENABLED:true}
   config:
-    import: ${SPRING_CONFIG_IMPORT:optional:aws-parameterstore:/qfeed/dev/be/}
+    import: optional:aws-parameterstore:/qfeed/${DEPLOY_ENV:dev}/be/
 
   jpa:
     hibernate:
