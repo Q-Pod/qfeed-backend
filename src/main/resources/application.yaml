@@ -175,3 +175,7 @@ interview:
     store:
       history-key-prefix: interview:session
       feedback-key-prefix: interview:feedback
+
+file:
+  multipart:
+    cleanup-interval-ms: 600000

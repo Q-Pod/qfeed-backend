@@ -148,7 +148,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     /**
      * 스케줄러 진입점에서 만료 세션 정리를 수행합니다.
      */
-    @Scheduled(fixedDelayString = "${interview.session.cleanup-interval-ms:300000}")
+    @Scheduled(fixedDelayString = "${interview.session.cleanup-interval-ms}")
     public void scheduledCleanup() {
         cleanupExpiredSessions();
     }
