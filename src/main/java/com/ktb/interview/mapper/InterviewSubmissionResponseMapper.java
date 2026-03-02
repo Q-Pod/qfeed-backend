@@ -136,7 +136,9 @@ public class InterviewSubmissionResponseMapper {
                         item.answerText(),
                         item.turnType() == null ? null : item.turnType().wireValue(),
                         item.turnOrder(),
-                        item.topicId()
+                        item.topicId(),
+                        item.videoFileId(),
+                        null
                 ))
                 .toList();
     }

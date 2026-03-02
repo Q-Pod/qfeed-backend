@@ -71,7 +71,8 @@ public interface InterviewSessionEntityRepository extends JpaRepository<Intervie
                                                'answer_text', t.answer_text,
                                                'turn_type', t.turn_type_cd,
                                                'turn_order', t.turn_order,
-                                               'topic_id', t.topic_id
+                                               'topic_id', t.topic_id,
+                                               'video_file_id', t.video_file_id
                                            )
                                            ORDER BY t.turn_order
                                        )

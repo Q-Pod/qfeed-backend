@@ -2,6 +2,9 @@ package com.ktb.interview.application.service;
 
 import com.ktb.ai.feedback.exception.AiFeedbackRequestRejectedException;
 import com.ktb.ai.feedback.exception.AiFeedbackRetryableException;
+import com.ktb.ai.feedback.exception.AiFeedbackServiceTemporarilyUnavailableException;
+import com.ktb.ai.feedback.exception.AiFeedbackTimeoutException;
+import com.ktb.ai.feedback.exception.AiFeedbackDependencyFailedException;
 import com.ktb.answer.domain.TurnType;
 import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
 import com.ktb.interview.dto.ai.InterviewFollowUpQuestionDataResponse;
@@ -23,6 +26,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrchestrator {
+
+    private static final String ERROR_FOLLOW_UP_RESPONSE_EMPTY = "AI follow-up response is empty";
+    private static final String ERROR_FOLLOW_UP_EMPTY_KEYWORD = "response is empty";
+    private static final String ERROR_TIMEOUT_KEYWORD_1 = "timed out";
+    private static final String ERROR_TIMEOUT_KEYWORD_2 = "timeout";
 
     private final AiInterviewPort aiInterviewClient;
 
@@ -49,9 +57,7 @@ public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrche
         try {
             InterviewFollowUpQuestionApiResponse response = aiInterviewClient.requestFollowUpQuestion(request);
             if (response == null || response.data() == null) {
-                log.warn("AI follow-up response is empty, fallback to feedback-only flow - sessionId={}",
-                        session.getSessionId());
-                return FollowUpDecision.fallback();
+                throw new AiFeedbackServiceTemporarilyUnavailableException(ERROR_FOLLOW_UP_RESPONSE_EMPTY);
             }
             InterviewFollowUpQuestionDataResponse data = response.data();
 
@@ -73,11 +79,42 @@ public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrche
                     data.questionText(),
                     data.category()
             );
-        } catch (AiFeedbackRequestRejectedException | AiFeedbackRetryableException e) {
-            log.warn("AI follow-up decision unavailable, fallback to feedback-only flow - sessionId={}, reason={}",
+        } catch (AiFeedbackRequestRejectedException e) {
+            log.warn("AI follow-up request rejected - sessionId={}, reason={}",
                     session.getSessionId(), e.getMessage());
-            return FollowUpDecision.fallback();
+            throw e;
+        } catch (AiFeedbackRetryableException e) {
+            RuntimeException mappedException = mapRetryableException(e);
+            log.warn("AI follow-up decision failed - sessionId={}, mappedException={}, reason={}",
+                    session.getSessionId(), mappedException.getClass().getSimpleName(), e.getMessage());
+            throw mappedException;
         }
+    }
+
+    private RuntimeException mapRetryableException(AiFeedbackRetryableException e) {
+        String reason = e.getMessage();
+        if (isTimeout(reason)) {
+            return new AiFeedbackTimeoutException(reason, e);
+        }
+        if (isEmptyResponse(reason)) {
+            return new AiFeedbackServiceTemporarilyUnavailableException(reason, e);
+        }
+        return new AiFeedbackDependencyFailedException(reason, e);
+    }
+
+    private boolean isTimeout(String message) {
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains(ERROR_TIMEOUT_KEYWORD_1) || normalized.contains(ERROR_TIMEOUT_KEYWORD_2);
+    }
+
+    private boolean isEmptyResponse(String message) {
+        if (message == null) {
+            return false;
+        }
+        return message.toLowerCase().contains(ERROR_FOLLOW_UP_EMPTY_KEYWORD);
     }
 
     /**

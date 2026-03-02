@@ -13,6 +13,7 @@ public record InterviewHistoryItem(
         String answerText,
         TurnType turnType,
         int turnOrder,
-        Integer topicId
+        Integer topicId,
+        Long videoFileId
 ) {
 }

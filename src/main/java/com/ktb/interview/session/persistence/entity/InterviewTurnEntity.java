@@ -36,6 +36,9 @@ public class InterviewTurnEntity {
     @Column(name = "answer_text", columnDefinition = "TEXT")
     private String answerText;
 
+    @Column(name = "video_file_id")
+    private Long videoFileId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -50,6 +53,7 @@ public class InterviewTurnEntity {
             String questionCategory,
             String questionText,
             String answerText,
+            Long videoFileId,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
@@ -60,6 +64,7 @@ public class InterviewTurnEntity {
         entity.questionCategory = questionCategory;
         entity.questionText = questionText;
         entity.answerText = answerText;
+        entity.videoFileId = videoFileId;
         entity.createdAt = createdAt;
         entity.updatedAt = updatedAt;
         return entity;

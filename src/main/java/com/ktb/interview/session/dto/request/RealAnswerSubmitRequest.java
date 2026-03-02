@@ -31,6 +31,10 @@ public record RealAnswerSubmitRequest(
                 description = "클라이언트가 인지한 현재 질문 텍스트(동기화 검증용)",
                 example = "프로세스와 스레드의 차이점을 설명해주세요."
         )
-        String question
+        String question,
+
+        @JsonAlias({"videoFileId", "video_file_id"})
+        @Schema(description = "현재 turn의 영상 파일 ID", example = "12345", nullable = true)
+        Long videoFileId
 ) {
 }

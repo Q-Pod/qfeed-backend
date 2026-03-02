@@ -169,6 +169,7 @@ public class JpaInterviewSessionFinalFeedbackStore implements InterviewSessionFi
                     category,
                     item.question(),
                     item.answerText(),
+                    item.videoFileId(),
                     defaultCreatedAt.plusSeconds(Math.max(item.turnOrder(), 0)),
                     defaultUpdatedAt
             ));

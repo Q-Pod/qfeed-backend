@@ -1,5 +1,6 @@
 package com.ktb.interview.session.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -25,6 +26,17 @@ public record InterviewHistoryResponse(
 
         @JsonProperty("topic_id")
         @Schema(description = "topic ID", example = "1")
-        Integer topicId
+        Integer topicId,
+
+        @JsonProperty("video_file_id")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @Schema(description = "실전모드 turn 영상 파일 ID", nullable = true, example = "12345")
+        Long videoFileId,
+
+        @JsonProperty("video_play_url")
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @Schema(description = "실전모드 turn 영상 재생용 Presigned GET URL", nullable = true,
+                example = "https://example-bucket.s3.ap-northeast-2.amazonaws.com/video/...")
+        String videoPlayUrl
 ) {
 }
