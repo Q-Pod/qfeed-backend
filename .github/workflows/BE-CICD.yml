@@ -21,7 +21,7 @@ env:
 jobs:
   ci:
     name: CI - Build and Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout code
@@ -91,7 +91,7 @@ jobs:
   deploy-dev:
     name: Deploy to Dev
     needs: ci
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
 
     steps:
@@ -141,7 +141,17 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"tag:Name","Values":["qfeed-dev-ec2-backend"]}]' \
-            --parameters '{"commands":["mkdir -p /srv/qfeed && curl -sfL ${{ env.DEPLOY_RAW_BASE_DEV }}/deploy.sh -o /srv/qfeed/deploy.sh && curl -sfL ${{ env.DEPLOY_RAW_BASE_DEV }}/docker-compose.yml -o /srv/qfeed/docker-compose.yml && cd /srv/qfeed && bash deploy.sh ${{ steps.meta.outputs.short_sha }}"],"executionTimeout":["600"]}' \
+            --parameters '{
+              "commands":[
+                "set -e",
+                "mkdir -p /srv/qfeed/alloy",
+                "curl -sfL ${{ env.DEPLOY_RAW_BASE_DEV }}/deploy.sh          -o /srv/qfeed/deploy.sh",
+                "curl -sfL ${{ env.DEPLOY_RAW_BASE_DEV }}/docker-compose.yml -o /srv/qfeed/docker-compose.yml",
+                "curl -sfL ${{ env.DEPLOY_RAW_BASE_DEV }}/alloy/config.alloy -o /srv/qfeed/alloy/config.alloy",
+                "cd /srv/qfeed && bash deploy.sh ${{ steps.meta.outputs.short_sha }}"
+              ],
+              "executionTimeout":["600"]
+            }' \
             --timeout-seconds 600 \
             --comment "Deploy backend ${{ steps.meta.outputs.short_sha }}" \
             --output text --query "Command.CommandId")
@@ -182,7 +192,7 @@ jobs:
   deploy-prod:
     name: Deploy to Prod
     needs: ci
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -232,7 +242,17 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets '[{"Key":"tag:Name","Values":["qfeed-prod-ec2-backend"]}]' \
-            --parameters '{"commands":["mkdir -p /srv/qfeed && curl -sfL ${{ env.DEPLOY_RAW_BASE_PROD }}/deploy.sh -o /srv/qfeed/deploy.sh && curl -sfL ${{ env.DEPLOY_RAW_BASE_PROD }}/docker-compose.yml -o /srv/qfeed/docker-compose.yml && cd /srv/qfeed && bash deploy.sh ${{ steps.meta.outputs.short_sha }}"],"executionTimeout":["600"]}' \
+            --parameters '{
+              "commands":[
+                "set -e",
+                "mkdir -p /srv/qfeed/alloy",
+                "curl -sfL ${{ env.DEPLOY_RAW_BASE_PROD }}/deploy.sh          -o /srv/qfeed/deploy.sh",
+                "curl -sfL ${{ env.DEPLOY_RAW_BASE_PROD }}/docker-compose.yml -o /srv/qfeed/docker-compose.yml",
+                "curl -sfL ${{ env.DEPLOY_RAW_BASE_PROD }}/alloy/config.alloy -o /srv/qfeed/alloy/config.alloy",
+                "cd /srv/qfeed && bash deploy.sh ${{ steps.meta.outputs.short_sha }}"
+              ],
+              "executionTimeout":["600"]
+            }' \
             --timeout-seconds 600 \
             --comment "Deploy backend ${{ steps.meta.outputs.short_sha }}" \
             --output text --query "Command.CommandId")
@@ -263,7 +283,7 @@ jobs:
 
   discord-ci-failure:
     name: Discord 알림 (CI 실패)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: ci
     if: always() && needs.ci.result == 'failure'
     steps:
@@ -311,7 +331,7 @@ jobs:
 
   discord-deploy-dev-failure:
     name: Discord 알림 (Dev 배포 실패)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: deploy-dev
     if: always() && needs.deploy-dev.result == 'failure'
     steps:
@@ -324,7 +344,7 @@ jobs:
 
   discord-deploy-prod-failure:
     name: Discord 알림 (Prod 배포 실패)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     needs: deploy-prod
     if: always() && needs.deploy-prod.result == 'failure'
     steps:
