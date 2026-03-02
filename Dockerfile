@@ -19,10 +19,11 @@ WORKDIR /app
 
 COPY --from=build /app/build/libs/app.jar app.jar
 RUN apk add --no-cache curl \
-    && addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && mkdir -p /app/logs && chown appuser:appgroup /app/logs
+    && curl -fsSL -o opentelemetry-javaagent.jar \
+       https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.20.1/opentelemetry-javaagent.jar \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 EXPOSE 8080 8081
 
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "app.jar"]
