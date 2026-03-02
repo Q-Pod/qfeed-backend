@@ -3,6 +3,10 @@ package com.ktb.interview.application.service.flow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ktb.file.dto.request.PresignedUrlMethod;
+import com.ktb.file.dto.request.PresignedUrlRequest;
+import com.ktb.file.dto.response.PresignedUrlResponse;
+import com.ktb.file.service.S3PresignedUrlService;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.domain.InterviewSessionStatus;
@@ -21,6 +25,7 @@ import com.ktb.interview.session.exception.InterviewSessionInvalidStateException
 import com.ktb.interview.session.persistence.repository.InterviewSessionEntityRepository;
 import com.ktb.interview.session.persistence.repository.projection.InterviewSessionFinalFeedbackReadModel;
 import com.ktb.interview.session.service.InterviewSessionService;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +48,7 @@ public class InterviewSessionFeedbackQueryFlowService {
 
     private final InterviewSessionService interviewSessionService;
     private final InterviewSessionEntityRepository interviewSessionEntityRepository;
+    private final S3PresignedUrlService s3PresignedUrlService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -73,7 +79,9 @@ public class InterviewSessionFeedbackQueryFlowService {
                                 item.answerText(),
                                 item.turnType().wireValue(),
                                 item.turnOrder(),
-                                item.topicId()
+                                item.topicId(),
+                                item.videoFileId(),
+                                null
                         ))
                         .toList()
         );
@@ -155,6 +163,10 @@ public class InterviewSessionFeedbackQueryFlowService {
                 new TypeReference<>() {
                 }
         );
+        boolean isReal = "REAL_INTERVIEW".equalsIgnoreCase(readModel.getInterviewType());
+        if (isReal) {
+            history = attachVideoPlayUrls(sessionId, history);
+        }
         List<String> coveredKeywords = parseJsonListNullable(
                 readModel.getKeywordCoveredJson(),
                 new TypeReference<>() {
@@ -194,7 +206,6 @@ public class InterviewSessionFeedbackQueryFlowService {
                 readModel.getOverallImprovements()
         );
 
-        boolean isReal = "REAL_INTERVIEW".equalsIgnoreCase(readModel.getInterviewType());
         Long userId = isReal ? null : readModel.getAccountId();
         Long questionId = isReal ? null : readModel.getInitialQuestionId();
         List<InterviewSessionTopicFeedbackResponse> topicsFeedback = topicFeedbacks.isEmpty() ? null : topicFeedbacks;
@@ -215,6 +226,61 @@ public class InterviewSessionFeedbackQueryFlowService {
                 overallFeedback,
                 history
         );
+    }
+
+    private List<InterviewHistoryResponse> attachVideoPlayUrls(
+            String sessionId,
+            List<InterviewHistoryResponse> history
+    ) {
+        if (history.isEmpty()) {
+            return history;
+        }
+
+        List<InterviewHistoryResponse> enriched = new ArrayList<>(history.size());
+        int attachedCount = 0;
+        for (InterviewHistoryResponse turn : history) {
+            Long videoFileId = turn.videoFileId();
+            String videoPlayUrl = null;
+            if (videoFileId != null) {
+                videoPlayUrl = generateVideoPlayUrl(videoFileId, sessionId, turn.turnOrder());
+                if (videoPlayUrl != null) {
+                    attachedCount += 1;
+                }
+            }
+            enriched.add(new InterviewHistoryResponse(
+                    turn.question(),
+                    turn.category(),
+                    turn.answerText(),
+                    turn.turnType(),
+                    turn.turnOrder(),
+                    turn.topicId(),
+                    videoFileId,
+                    videoPlayUrl
+            ));
+        }
+        log.info("Attached interview turn video play urls - sessionId={}, totalTurns={}, attachedUrls={}",
+                sessionId, history.size(), attachedCount);
+        return enriched;
+    }
+
+    private String generateVideoPlayUrl(Long videoFileId, String sessionId, int turnOrder) {
+        try {
+            PresignedUrlResponse response = s3PresignedUrlService.generatePresignedUrl(
+                    new PresignedUrlRequest(
+                            null,
+                            null,
+                            null,
+                            null,
+                            PresignedUrlMethod.GET,
+                            videoFileId
+                    )
+            );
+            return response.presignedUrl();
+        } catch (Exception e) {
+            log.warn("Failed to generate turn video play url - sessionId={}, turnOrder={}, videoFileId={}",
+                    sessionId, turnOrder, videoFileId, e);
+            return null;
+        }
     }
 
     private <T> List<T> parseJsonList(String json, TypeReference<List<T>> typeReference) {
