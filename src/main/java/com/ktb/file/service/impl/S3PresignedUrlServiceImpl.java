@@ -1,6 +1,7 @@
 package com.ktb.file.service.impl;
 
 import com.ktb.common.config.S3Config;
+import com.ktb.file.constant.S3PresignedUrlConstants;
 import com.ktb.file.domain.File;
 import com.ktb.file.domain.FileCategory;
 import com.ktb.file.domain.FileUploadStatus;
@@ -47,37 +48,18 @@ import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
-
-    private static final int PRESIGNED_URL_EXPIRATION_SECONDS = 300; // 5분
-    private static final int MULTIPART_PART_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
-    private static final String UPLOAD_METHOD = "PUT";
-    private static final String ERROR_MESSAGE_EXTENSION_NOT_FOUND = "파일 확장자를 찾을 수 없습니다";
-    private static final String ERROR_MESSAGE_FILE_NOT_UPLOADED = "S3에 파일이 업로드되지 않았습니다";
-    private static final String ERROR_MESSAGE_MULTIPART_UPLOAD_ID_EMPTY = "multipart upload id 생성에 실패했습니다";
-    private static final String ERROR_MESSAGE_MULTIPART_ONLY_VIDEO =
-            "multipart 업로드는 VIDEO 카테고리에서만 지원됩니다";
-    private static final String ERROR_MESSAGE_MULTIPART_NOT_STARTED =
-            "multipart 업로드가 시작되지 않았습니다";
-    private static final String ERROR_MESSAGE_PART_NUMBER_INVALID =
-            "part_number는 1 이상이어야 합니다";
-    private static final String ERROR_MESSAGE_VIDEO_CONFIRM_NOT_ALLOWED =
-            "VIDEO 업로드는 confirm 대신 multipart complete API를 사용해야 합니다";
-    private static final String ERROR_MESSAGE_MULTIPART_COMPLETE_FAILED =
-            "multipart 업로드 완료 처리에 실패했습니다";
-    private static final String ERROR_MESSAGE_MULTIPART_ABORT_FAILED =
-            "multipart 업로드 중단 처리에 실패했습니다";
-    private static final String ERROR_MESSAGE_MULTIPART_ABORT_ALREADY_UPLOADED =
-            "이미 업로드 완료된 파일은 중단할 수 없습니다";
-    private static final int MULTIPART_STALE_HOURS = 24;
 
     private final FileRepository fileRepository;
     private final S3Client s3Client;
@@ -105,18 +87,20 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     public MultipartPartPresignedUrlResponse generateMultipartPartPresignedUrl(Long fileId, int partNumber) {
         if (partNumber < 1) {
             log.warn("Invalid multipart part number - fileId={}, partNumber={}", fileId, partNumber);
-            throw new FileInvalidMetadataException(ERROR_MESSAGE_PART_NUMBER_INVALID);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_PART_NUMBER_INVALID);
         }
 
         File file = getMultipartTargetFile(fileId);
         log.info("Generate multipart part presigned url requested - fileId={}, partNumber={}", fileId, partNumber);
         String presignedUrl = generateMultipartPartPresignedUrl(file.getPath(), file.getMultipartUploadId(), partNumber);
+        log.debug("Multipart part presigned url generated - fileId={}, partNumber={}, expiresIn={}",
+                fileId, partNumber, S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS);
         return new MultipartPartPresignedUrlResponse(
                 file.getId(),
                 partNumber,
                 presignedUrl,
-                PRESIGNED_URL_EXPIRATION_SECONDS,
-                UPLOAD_METHOD
+                S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS,
+                S3PresignedUrlConstants.UPLOAD_METHOD
         );
     }
 
@@ -146,7 +130,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         } catch (Exception e) {
             log.error("Failed to complete multipart upload - fileId={}, key={}, uploadId={}",
                     file.getId(), file.getPath(), file.getMultipartUploadId(), e);
-            throw new FileStorageMigrationException(ERROR_MESSAGE_MULTIPART_COMPLETE_FAILED, e);
+            throw new FileStorageMigrationException(S3PresignedUrlConstants.ERROR_MESSAGE_MULTIPART_COMPLETE_FAILED, e);
         }
 
         file.setUploadStatus(FileUploadStatus.UPLOADED);
@@ -168,7 +152,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         log.info("Abort multipart upload requested - fileId={}, key={}", fileId, file.getPath());
         if (file.getUploadStatus() == FileUploadStatus.UPLOADED) {
             log.warn("Abort multipart upload rejected - file already uploaded, fileId={}", fileId);
-            throw new FileInvalidMetadataException(ERROR_MESSAGE_MULTIPART_ABORT_ALREADY_UPLOADED);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_MULTIPART_ABORT_ALREADY_UPLOADED);
         }
 
         String uploadId = file.getMultipartUploadId();
@@ -178,7 +162,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
             } catch (Exception e) {
                 log.error("Failed to abort multipart upload - fileId={}, key={}, uploadId={}",
                         file.getId(), file.getPath(), uploadId, e);
-                throw new FileStorageMigrationException(ERROR_MESSAGE_MULTIPART_ABORT_FAILED, e);
+                throw new FileStorageMigrationException(S3PresignedUrlConstants.ERROR_MESSAGE_MULTIPART_ABORT_FAILED, e);
             }
         } else {
             log.info("Abort multipart upload skipped remote call - no uploadId, fileId={}", fileId);
@@ -194,7 +178,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     @Scheduled(fixedDelayString = "${file.multipart.cleanup-interval-ms}")
     @Transactional
     public void cleanupStaleMultipartUploads() {
-        LocalDateTime threshold = LocalDateTime.now().minusHours(MULTIPART_STALE_HOURS);
+        LocalDateTime threshold = LocalDateTime.now().minusHours(S3PresignedUrlConstants.MULTIPART_STALE_HOURS);
         List<File> staleFiles = fileRepository.findByUploadStatusAndMultipartStartedAtBeforeAndMultipartUploadIdIsNotNull(
                 FileUploadStatus.PENDING,
                 threshold
@@ -217,6 +201,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
             file.setUploadStatus(FileUploadStatus.FAILED);
             file.clearMultipartUpload();
             fileRepository.save(file);
+            log.debug("Marked stale multipart file as FAILED - fileId={}", file.getId());
             cleaned++;
         }
 
@@ -227,15 +212,15 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     @Transactional
     public FileUploadConfirmResponse confirmUpload(Long fileId) {
         log.info("Confirm upload requested - fileId={}", fileId);
-        File file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new FileNotFoundException(fileId));
+        File file = findFileById(fileId);
         if (file.getCategory() == FileCategory.VIDEO) {
             log.warn("Confirm upload rejected - VIDEO category must use multipart complete, fileId={}", fileId);
-            throw new FileInvalidMetadataException(ERROR_MESSAGE_VIDEO_CONFIRM_NOT_ALLOWED);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_VIDEO_CONFIRM_NOT_ALLOWED);
         }
 
         // S3에서 파일 존재 확인
         boolean exists = isFileExistsInS3(file.getPath());
+        log.info("Confirm upload S3 existence checked - fileId={}, exists={}", fileId, exists);
 
         if (exists) {
             file.setUploadStatus(FileUploadStatus.UPLOADED);
@@ -259,7 +244,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
 
             log.warn("Upload confirmation failed - File ID: {}, S3 Key: {}", file.getId(), file.getPath());
 
-            throw new FileStorageMigrationException(ERROR_MESSAGE_FILE_NOT_UPLOADED);
+            throw new FileStorageMigrationException(S3PresignedUrlConstants.ERROR_MESSAGE_FILE_NOT_UPLOADED);
         }
     }
 
@@ -271,6 +256,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
                 .key(s3Key)
                 .build();
             s3Client.headObject(headObjectRequest);
+            log.debug("S3 object exists - key={}", s3Key);
             return true;
         } catch (NoSuchKeyException e) {
             log.debug("S3 object not found - key={}", s3Key);
@@ -289,7 +275,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
             .build();
 
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-            .signatureDuration(Duration.ofSeconds(PRESIGNED_URL_EXPIRATION_SECONDS))
+            .signatureDuration(Duration.ofSeconds(S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS))
             .putObjectRequest(putObjectRequest)
             .build();
 
@@ -305,7 +291,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
                 .build();
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofSeconds(PRESIGNED_URL_EXPIRATION_SECONDS))
+                .signatureDuration(Duration.ofSeconds(S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS))
                 .getObjectRequest(getObjectRequest)
                 .build();
 
@@ -323,7 +309,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
                 .build();
 
         UploadPartPresignRequest presignRequest = UploadPartPresignRequest.builder()
-                .signatureDuration(Duration.ofSeconds(PRESIGNED_URL_EXPIRATION_SECONDS))
+                .signatureDuration(Duration.ofSeconds(S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS))
                 .uploadPartRequest(uploadPartRequest)
                 .build();
 
@@ -355,18 +341,139 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
                     "허용되지 않은 확장자입니다. 허용 확장자: " + category.getAllowedExtensionsAsString()
             );
         }
+
+        if (category == FileCategory.AUDIO || category == FileCategory.VIDEO) {
+            String extensionByMime = resolveExtensionByMimeType(category, request.mimeType());
+            if (!extensionByMime.equals(extension)) {
+                log.warn("File extension and mime mismatch - category={}, extension={}, mimeType={}, expectedExtension={}",
+                        category, extension, request.mimeType(), extensionByMime);
+                throw new FileInvalidMetadataException(
+                        S3PresignedUrlConstants.ERROR_MESSAGE_EXTENSION_MIME_MISMATCH + " (expected: ." + extensionByMime + ")"
+                );
+            }
+            validateClientFileNamePattern(category, request.fileName());
+        }
     }
 
     private String extractExtension(String fileName) {
         if (fileName == null || !fileName.contains(".")) {
             log.warn("File extension not found - fileName={}", fileName);
-            throw new FileInvalidMetadataException(ERROR_MESSAGE_EXTENSION_NOT_FOUND);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_EXTENSION_NOT_FOUND);
         }
         return fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
     }
 
     private String generateStoredName(String extension) {
         return UUID.randomUUID().toString() + "." + extension;
+    }
+
+    private String resolveStoredName(PresignedUrlRequest request) {
+        FileCategory category = request.category();
+        String extension = resolveStorageExtension(category, request);
+
+        if (category == FileCategory.AUDIO) {
+            AudioClientFileName audioName = parseAudioClientFileName(request.fileName());
+            return audioName.timestamp()
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + audioName.mode()
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + S3PresignedUrlConstants.FILE_TYPE_STT
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + UUID.randomUUID()
+                    + "."
+                    + extension;
+        }
+
+        if (category == FileCategory.VIDEO) {
+            String timestamp = parseVideoClientFileNameTimestamp(request.fileName());
+            return timestamp
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + S3PresignedUrlConstants.FILE_TYPE_REAL_VIDEO
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + UUID.randomUUID()
+                    + "."
+                    + extension;
+        }
+
+        return generateStoredName(extension);
+    }
+
+    private String resolveStorageExtension(FileCategory category, PresignedUrlRequest request) {
+        if (category == FileCategory.AUDIO || category == FileCategory.VIDEO) {
+            return resolveExtensionByMimeType(category, request.mimeType());
+        }
+        return extractExtension(request.fileName());
+    }
+
+    private String resolveExtensionByMimeType(FileCategory category, String mimeType) {
+        String normalizedMimeType = mimeType == null ? "" : mimeType.toLowerCase(Locale.ROOT);
+        if (category == FileCategory.AUDIO) {
+            return switch (normalizedMimeType) {
+                case "audio/webm" -> "webm";
+                case "audio/mpeg" -> "mp3";
+                case "audio/x-m4a", "audio/mp4" -> "m4a";
+                case "audio/wav" -> "wav";
+                case "audio/ogg" -> "ogg";
+                default -> throwUnsupportedMimeExtension(category, mimeType);
+            };
+        }
+
+        if (category == FileCategory.VIDEO) {
+            return switch (normalizedMimeType) {
+                case "video/webm" -> "webm";
+                case "video/mp4" -> "mp4";
+                default -> throwUnsupportedMimeExtension(category, mimeType);
+            };
+        }
+
+        throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_UNSUPPORTED_MIME_EXTENSION);
+    }
+
+    private String throwUnsupportedMimeExtension(FileCategory category, String mimeType) {
+        log.warn("Unsupported mime type for extension mapping - category={}, mimeType={}", category, mimeType);
+        throw new FileInvalidMetadataException(
+                S3PresignedUrlConstants.ERROR_MESSAGE_UNSUPPORTED_MIME_EXTENSION + " (category=" + category + ", mimeType=" + mimeType + ")"
+        );
+    }
+
+    private void validateClientFileNamePattern(FileCategory category, String fileName) {
+        if (category == FileCategory.AUDIO) {
+            parseAudioClientFileName(fileName);
+            return;
+        }
+        if (category == FileCategory.VIDEO) {
+            parseVideoClientFileNameTimestamp(fileName);
+        }
+    }
+
+    private AudioClientFileName parseAudioClientFileName(String fileName) {
+        Matcher matcher = S3PresignedUrlConstants.AUDIO_FILE_NAME_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            log.warn("Invalid AUDIO file_name pattern - fileName={}", fileName);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_AUDIO_FILE_NAME_PATTERN_INVALID);
+        }
+        String timestamp = validateAndNormalizeClientTimestamp(matcher.group(1));
+        String mode = matcher.group(2).toUpperCase(Locale.ROOT);
+        return new AudioClientFileName(timestamp, mode);
+    }
+
+    private String parseVideoClientFileNameTimestamp(String fileName) {
+        Matcher matcher = S3PresignedUrlConstants.VIDEO_FILE_NAME_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            log.warn("Invalid VIDEO file_name pattern - fileName={}", fileName);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_VIDEO_FILE_NAME_PATTERN_INVALID);
+        }
+        return validateAndNormalizeClientTimestamp(matcher.group(1));
+    }
+
+    private String validateAndNormalizeClientTimestamp(String timestampText) {
+        try {
+            LocalDateTime.parse(timestampText, S3PresignedUrlConstants.CLIENT_TIMESTAMP_FORMATTER);
+            return timestampText;
+        } catch (DateTimeParseException e) {
+            log.warn("Invalid client timestamp in file_name - timestamp={}", timestampText);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_CLIENT_TIMESTAMP_INVALID);
+        }
     }
 
     private String buildS3Key(FileCategory category, String objectName) {
@@ -381,8 +488,8 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
     private PresignedUrlResponse generateUploadPresignedUrl(PresignedUrlRequest request) {
         validateMetadata(request);
 
-        String extension = extractExtension(request.fileName());
-        String storedName = generateStoredName(extension);
+        String storedName = resolveStoredName(request);
+        String extension = extractExtension(storedName);
         String s3Key = buildS3Key(request.category(), storedName);
 
         File fileEntity = File.builder()
@@ -402,21 +509,21 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         String presignedUrl = generateS3PresignedUrl(s3Key, request.mimeType());
 
         log.info("Presigned URL generated - File ID: {}, S3 Key: {}, Category: {}, Expires in: {}s",
-                savedFile.getId(), s3Key, request.category(), PRESIGNED_URL_EXPIRATION_SECONDS);
+                savedFile.getId(), s3Key, request.category(), S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS);
 
         return PresignedUrlResponse.single(
                 savedFile.getId(),
                 presignedUrl,
-                PRESIGNED_URL_EXPIRATION_SECONDS,
-                UPLOAD_METHOD
+                S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS,
+                S3PresignedUrlConstants.UPLOAD_METHOD
         );
     }
 
     private PresignedUrlResponse generateMultipartStartResponse(PresignedUrlRequest request) {
         validateMetadata(request);
 
-        String extension = extractExtension(request.fileName());
-        String storedName = generateStoredName(extension);
+        String storedName = resolveStoredName(request);
+        String extension = extractExtension(storedName);
         String s3Key = buildS3Key(request.category(), storedName);
 
         File fileEntity = File.builder()
@@ -437,38 +544,44 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         fileRepository.save(savedFile);
 
         log.info("Multipart upload started - fileId={}, s3Key={}, uploadId={}, partSize={}",
-                savedFile.getId(), s3Key, uploadId, MULTIPART_PART_SIZE_BYTES);
+                savedFile.getId(), s3Key, uploadId, S3PresignedUrlConstants.MULTIPART_PART_SIZE_BYTES);
 
         return PresignedUrlResponse.multipart(
                 savedFile.getId(),
-                PRESIGNED_URL_EXPIRATION_SECONDS,
-                MULTIPART_PART_SIZE_BYTES
+                S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS,
+                S3PresignedUrlConstants.MULTIPART_PART_SIZE_BYTES
         );
     }
 
     private PresignedUrlResponse generateReadPresignedUrl(PresignedUrlRequest request, PresignedUrlMethod method) {
         if (request.fileId() == null) {
+            log.warn("Read presigned url requested without fileId - method={}, category={}",
+                    method, request.category());
             throw new FileInvalidMetadataException("file_id는 GET/HEAD 요청에서 필수입니다");
         }
 
-        File file = fileRepository.findById(request.fileId())
-                .orElseThrow(() -> new FileNotFoundException(request.fileId()));
+        File file = findFileById(request.fileId());
 
         String presignedUrl = generateS3PresignedGetUrl(file.getPath());
 
         log.info("Presigned URL generated - File ID: {}, S3 Key: {}, Method: {}, Expires in: {}s",
-                file.getId(), file.getPath(), method, PRESIGNED_URL_EXPIRATION_SECONDS);
+                file.getId(), file.getPath(), method, S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS);
 
         return PresignedUrlResponse.single(
                 file.getId(),
                 presignedUrl,
-                PRESIGNED_URL_EXPIRATION_SECONDS,
+                S3PresignedUrlConstants.PRESIGNED_URL_EXPIRATION_SECONDS,
                 method.name()
         );
     }
 
     private PresignedUrlMethod resolveMethod(PresignedUrlRequest request) {
-        return request.method() != null ? request.method() : PresignedUrlMethod.PUT;
+        if (request.method() == null) {
+            log.debug("Presigned url method not provided, defaulting to PUT - category={}, fileId={}",
+                    request.category(), request.fileId());
+            return PresignedUrlMethod.PUT;
+        }
+        return request.method();
     }
 
     private String normalizeCdnPrefix() {
@@ -487,7 +600,7 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         String uploadId = response.uploadId();
         if (uploadId == null || uploadId.isBlank()) {
             log.error("Create multipart upload returned empty uploadId - key={}", s3Key);
-            throw new FileStorageMigrationException(ERROR_MESSAGE_MULTIPART_UPLOAD_ID_EMPTY);
+            throw new FileStorageMigrationException(S3PresignedUrlConstants.ERROR_MESSAGE_MULTIPART_UPLOAD_ID_EMPTY);
         }
         return uploadId;
     }
@@ -501,22 +614,35 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         s3Client.abortMultipartUpload(request);
     }
 
+    private record AudioClientFileName(
+            String timestamp,
+            String mode
+    ) {
+    }
+
     private File getMultipartTargetFile(Long fileId) {
         File file = getVideoTargetFile(fileId);
         if (file.getMultipartUploadId() == null || file.getMultipartUploadId().isBlank()) {
             log.warn("Multipart upload not started - fileId={}", fileId);
-            throw new FileInvalidMetadataException(ERROR_MESSAGE_MULTIPART_NOT_STARTED);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_MULTIPART_NOT_STARTED);
         }
         return file;
     }
 
     private File getVideoTargetFile(Long fileId) {
-        File file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new FileNotFoundException(fileId));
+        File file = findFileById(fileId);
         if (file.getCategory() != FileCategory.VIDEO) {
             log.warn("Multipart operation rejected - fileId={}, category={}", fileId, file.getCategory());
-            throw new FileInvalidMetadataException(ERROR_MESSAGE_MULTIPART_ONLY_VIDEO);
+            throw new FileInvalidMetadataException(S3PresignedUrlConstants.ERROR_MESSAGE_MULTIPART_ONLY_VIDEO);
         }
         return file;
+    }
+
+    private File findFileById(Long fileId) {
+        return fileRepository.findById(fileId)
+                .orElseThrow(() -> {
+                    log.warn("File not found - fileId={}", fileId);
+                    return new FileNotFoundException(fileId);
+                });
     }
 }

@@ -57,12 +57,17 @@ public class InterviewRealHistoryAssembler {
      * 세션에 저장된 누적 이력과 요청 누적 이력을 동기화합니다.
      * 요청에는 전체 누적 이력이 오므로 신규 turn만 append 합니다.
      */
-    public void syncSessionHistoryFromRequest(InterviewSession session, List<InterviewHistoryRequest> requestHistory) {
+    public void syncSessionHistoryFromRequest(
+            InterviewSession session,
+            List<InterviewHistoryRequest> requestHistory,
+            Long videoFileId
+    ) {
         if (requestHistory == null || requestHistory.isEmpty()) {
             throw new InterviewSessionInvalidInputException(ERROR_INTERVIEW_HISTORY_REQUIRED);
         }
 
         int existingCount = session.getInterviewHistoryView().size();
+        int latestTurnOrder = requestHistory.getLast().turnOrder();
         Map<Integer, QuestionCategory> topicCategoryMap = buildTopicCategoryMap(session);
         int appended = 0;
 
@@ -79,6 +84,7 @@ public class InterviewRealHistoryAssembler {
 
             TurnType turnType = parseHistoryTurnType(turn.turnType());
             QuestionCategory turnCategory = resolveTurnCategory(turn, session, topicCategoryMap);
+            Long turnVideoFileId = turnOrder == latestTurnOrder ? videoFileId : null;
             session.appendHistory(new InterviewHistoryItem(
                     null,
                     turn.question(),
@@ -86,7 +92,8 @@ public class InterviewRealHistoryAssembler {
                     turn.answerText(),
                     turnType,
                     turnOrder,
-                    turn.topicId()
+                    turn.topicId(),
+                    turnVideoFileId
             ));
             if (turn.topicId() != null && turnCategory != null) {
                 topicCategoryMap.put(turn.topicId(), turnCategory);

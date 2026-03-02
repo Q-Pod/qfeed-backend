@@ -63,6 +63,8 @@ public class FileController {
         log.info("POST /api/files/presigned-url - method={}, category={}, fileId={}, fileSize={}",
                 request.method(), request.category(), request.fileId(), request.fileSize());
         PresignedUrlResponse response = s3PresignedUrlService.generatePresignedUrl(request);
+        log.info("Presigned URL response ready - fileId={}, uploadMode={}, method={}, hasUrl={}",
+                response.fileId(), response.uploadMode(), response.method(), response.presignedUrl() != null);
         return ResponseEntity.ok(
                 new ApiResponse<>(MESSAGE_PRESIGNED_URL_GENERATED, response)
         );
@@ -95,6 +97,8 @@ public class FileController {
                 fileId,
                 request.partNumber()
         );
+        log.info("Multipart part presigned URL response ready - fileId={}, partNumber={}, expiresIn={}",
+                response.fileId(), response.partNumber(), response.expiresIn());
         return ResponseEntity.ok(new ApiResponse<>(MESSAGE_MULTIPART_PART_URL_GENERATED, response));
     }
 
@@ -127,6 +131,7 @@ public class FileController {
     ) {
         log.info("POST /api/files/{}/multipart/complete - partCount={}", fileId, request.parts().size());
         FileUploadConfirmResponse response = s3PresignedUrlService.completeMultipartUpload(fileId, request);
+        log.info("Multipart complete response ready - fileId={}, status={}", response.fileId(), response.status());
         return ResponseEntity.ok(new ApiResponse<>(MESSAGE_MULTIPART_UPLOAD_COMPLETED, response));
     }
 
@@ -158,6 +163,7 @@ public class FileController {
     ) {
         log.info("POST /api/files/{}/multipart/abort", fileId);
         MultipartUploadAbortResponse response = s3PresignedUrlService.abortMultipartUpload(fileId);
+        log.info("Multipart abort response ready - fileId={}, status={}", response.fileId(), response.status());
         return ResponseEntity.ok(new ApiResponse<>(MESSAGE_MULTIPART_UPLOAD_ABORTED, response));
     }
 
@@ -188,6 +194,7 @@ public class FileController {
     ) {
         log.info("POST /api/files/{}/confirm", fileId);
         FileUploadConfirmResponse response = s3PresignedUrlService.confirmUpload(fileId);
+        log.info("Confirm upload response ready - fileId={}, status={}", response.fileId(), response.status());
         return ResponseEntity.ok(
                 new ApiResponse<>(MESSAGE_UPLOAD_CONFIRMED, response)
         );

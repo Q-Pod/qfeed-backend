@@ -12,10 +12,10 @@ import com.ktb.interview.session.domain.InterviewSession;
 import com.ktb.interview.session.domain.InterviewSessionStatus;
 import com.ktb.interview.session.dto.request.RealAnswerSubmitRequest;
 import com.ktb.interview.session.dto.response.InterviewRealSubmitResponse;
-import com.ktb.interview.session.exception.InterviewSessionInvalidStateException;
 import com.ktb.interview.session.service.InterviewSessionService;
 import com.ktb.interview.validator.InterviewSubmissionValidator;
 import com.ktb.question.domain.QuestionCategory;
+import com.ktb.ai.feedback.exception.AiFeedbackServiceTemporarilyUnavailableException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,7 +65,7 @@ public class InterviewRealSubmissionFlowService {
                 currentQuestionSnapshot.content(),
                 session.getSessionId()
         );
-        realHistoryAssembler.syncSessionHistoryFromRequest(session, historyForFollowUp);
+        realHistoryAssembler.syncSessionHistoryFromRequest(session, historyForFollowUp, request.videoFileId());
 
         int realMaxTurn = resolveRealMaxTurn();
         if (session.getTurnCount() >= realMaxTurn) {
@@ -244,7 +244,7 @@ public class InterviewRealSubmissionFlowService {
             );
             return new InterviewQuestionSnapshot(null, followUpQuestionText, category);
         }
-        throw new InterviewSessionInvalidStateException(ERROR_AI_FOLLOW_UP_QUESTION_EMPTY);
+        throw new AiFeedbackServiceTemporarilyUnavailableException(ERROR_AI_FOLLOW_UP_QUESTION_EMPTY);
     }
 
     /**

@@ -57,7 +57,8 @@ public class InterviewPracticeSubmissionFlowService {
                 request.answerText(),
                 TurnType.NEW_TOPIC,
                 turnOrder,
-                topicId
+                topicId,
+                null
         );
 
         session.appendHistory(currentTurn);

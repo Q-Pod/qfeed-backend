@@ -1,7 +1,7 @@
 package com.ktb.ai.tts.controller;
 
 import com.ktb.ai.tts.dto.request.TtsRequest;
-import com.ktb.ai.tts.dto.response.TtsMultipartResponse;
+import com.ktb.ai.tts.dto.response.TtsAudioResponse;
 import com.ktb.ai.tts.service.TtsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,14 +26,24 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class TtsController {
 
-    private static final String MULTIPART_MIXED = "multipart/mixed";
+    private static final String AUDIO_MPEG = "audio/mpeg";
+    private static final String HEADER_TTS_MESSAGE = "X-TTS-Message";
+    private static final String HEADER_TTS_USER_ID = "X-TTS-User-Id";
+    private static final String HEADER_TTS_SESSION_ID = "X-TTS-Session-Id";
 
     private final TtsService ttsService;
 
-    @PostMapping(produces = MULTIPART_MIXED)
-    @Operation(summary = "TTS 변환", description = "텍스트를 음성(mp3)으로 변환하여 multipart/mixed로 반환합니다.")
+    @PostMapping(produces = AUDIO_MPEG)
+    @Operation(summary = "TTS 변환", description = "텍스트를 음성(mp3)으로 변환하여 audio/mpeg 단일 바디로 반환합니다.")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "변환 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "변환 성공",
+                    content = @Content(
+                            mediaType = AUDIO_MPEG,
+                            schema = @Schema(type = "string", format = "binary")
+                    )
+            ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "API 키 인증 실패",
                     content = @Content(schema = @Schema(implementation = com.ktb.common.dto.CommonErrorResponse.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "음성 모델 없음",
@@ -50,28 +60,42 @@ public class TtsController {
     public ResponseEntity<byte[]> convert(@Valid @RequestBody TtsRequest request) {
         log.info("TTS convert request - userId={}, sessionId={}, textLength={}",
                 request.userId(), request.sessionId(), request.text() == null ? 0 : request.text().length());
-        TtsMultipartResponse response = ttsService.convertToSpeech(
+        TtsAudioResponse response = ttsService.convertToSpeech(
                 request.userId(),
                 request.sessionId(),
                 request.text()
         );
 
         HttpHeaders headers = new HttpHeaders();
-        if (response.contentType() == null || response.contentType().isBlank()) {
-            headers.setContentType(MediaType.parseMediaType(MULTIPART_MIXED));
+        if (response.audioContentType() == null || response.audioContentType().isBlank()) {
+            headers.setContentType(MediaType.parseMediaType(AUDIO_MPEG));
         } else {
-            headers.add(HttpHeaders.CONTENT_TYPE, response.contentType());
+            headers.setContentType(MediaType.parseMediaType(response.audioContentType()));
         }
-        if (response.contentDisposition() != null && !response.contentDisposition().isBlank()) {
-            headers.add(HttpHeaders.CONTENT_DISPOSITION, response.contentDisposition());
+        if (response.fileName() != null && !response.fileName().isBlank()) {
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "inline; filename=\"" + sanitizeFileName(response.fileName()) + "\"");
+        }
+        if (response.message() != null && !response.message().isBlank()) {
+            headers.add(HEADER_TTS_MESSAGE, response.message());
+        }
+        if (response.userId() != null) {
+            headers.add(HEADER_TTS_USER_ID, String.valueOf(response.userId()));
+        }
+        if (response.sessionId() != null && !response.sessionId().isBlank()) {
+            headers.add(HEADER_TTS_SESSION_ID, response.sessionId());
         }
         log.info("TTS convert response ready - userId={}, sessionId={}, payloadBytes={}, contentType={}",
                 request.userId(), request.sessionId(),
-                response.payload() == null ? 0 : response.payload().length,
-                response.contentType());
+                response.audioPayload() == null ? 0 : response.audioPayload().length,
+                response.audioContentType());
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(response.payload());
+                .body(response.audioPayload());
+    }
+
+    private String sanitizeFileName(String fileName) {
+        return fileName.replaceAll("[\\r\\n\"]", "");
     }
 }
