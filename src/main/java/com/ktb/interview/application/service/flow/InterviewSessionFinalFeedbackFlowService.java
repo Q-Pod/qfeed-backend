@@ -160,13 +160,21 @@ public class InterviewSessionFinalFeedbackFlowService {
             return questionRepository.findById(latestTurn.questionId())
                     .orElseThrow(() -> new QuestionNotFoundException(latestTurn.questionId()));
         }
-        return resolvePersistenceQuestionForReal(session.getCurrentQuestion(), session.getQuestionType());
+        return resolvePersistenceQuestionForReal(session);
     }
 
     /**
      * real 모드에서 현재 질문 snapshot에 DB 질문 ID가 없을 수 있어, 영속/통계용 질문 앵커를 선택합니다.
      */
-    private Question resolvePersistenceQuestionForReal(InterviewQuestionSnapshot snapshot, QuestionType questionType) {
+    private Question resolvePersistenceQuestionForReal(InterviewSession session) {
+        Long initialQuestionId = session.getInitialQuestionId();
+        if (initialQuestionId != null) {
+            return questionRepository.findById(initialQuestionId)
+                    .orElseThrow(() -> new QuestionNotFoundException(initialQuestionId));
+        }
+
+        InterviewQuestionSnapshot snapshot = session.getCurrentQuestion();
+        QuestionType questionType = session.getQuestionType();
         if (snapshot == null) {
             return questionRepository.findRandomActiveByType(questionType.name())
                     .orElseThrow(() -> new QuestionNotFoundException(0L));
