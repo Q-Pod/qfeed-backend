@@ -41,7 +41,7 @@ public enum FileCategory {
     AUDIO(
             "음성 파일",
             "audio",
-            10 * 1024 * 1024L, // 10MB
+            20 * 1024 * 1024L, // 20MB
             Arrays.asList("webm", "mp3", "m4a", "wav", "ogg"),
             Arrays.asList("audio/webm", "audio/mpeg", "audio/x-m4a", "audio/mp4", "audio/wav", "audio/ogg")
     ),
@@ -49,7 +49,7 @@ public enum FileCategory {
     VIDEO(
             "비디오 파일",
             "video",
-            100 * 1024 * 1024L, // 100MB
+            200 * 1024 * 1024L, // 200MB
             Arrays.asList("webm", "mp4"),
             Arrays.asList("video/webm", "video/mp4")
     );
