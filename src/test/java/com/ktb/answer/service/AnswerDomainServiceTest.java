@@ -258,7 +258,9 @@ class AnswerDomainServiceTest {
                             "답변",
                             "follow_up",
                             1,
-                            1
+                            1,
+                            null,
+                            null
                     ))
             );
             when(interviewSessionFeedbackQueryFlowService.getSessionFeedbackCompleted(ACCOUNT_ID, sessionId))
