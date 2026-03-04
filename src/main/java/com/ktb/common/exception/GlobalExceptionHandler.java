@@ -103,11 +103,21 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ClientAbortException.class, AsyncRequestNotUsableException.class})
-    public ResponseEntity<Void> handleClientDisconnect(
+    public ResponseEntity<CommonErrorResponse> handleClientDisconnect(
             Exception e, HttpServletRequest request) {
         log.warn("Client disconnected - path={}, exception={}, message={}",
                 request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).build(); // 204
+
+        CommonErrorResponse response = CommonErrorResponse.of(
+                ErrorCode.FILE_MULTIPART_ABORT_FAILED,
+                e.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(response);
     }
 
     @ExceptionHandler(Exception.class)
