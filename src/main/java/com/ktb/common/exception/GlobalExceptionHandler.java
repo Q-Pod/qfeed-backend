@@ -5,12 +5,14 @@ import com.ktb.common.dto.CommonErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.validation.BindException;
 
@@ -100,14 +102,17 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<CommonErrorResponse> handleException(
+    @ExceptionHandler({ClientAbortException.class, AsyncRequestNotUsableException.class})
+    public ResponseEntity<Void> handleClientDisconnect(
             Exception e, HttpServletRequest request) {
+        log.warn("Client disconnected - path={}, exception={}, message={}",
+                request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).build(); // 204
+    }
 
-        if (isClientAbortException(e)) {
-            log.warn("Client aborted request - path={}, message={}", request.getRequestURI(), e.getMessage());
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        }
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<CommonErrorResponse> handleUnexpectedException(
+            Exception e, HttpServletRequest request) {
 
         log.error("Unexpected exception", e);
 
@@ -120,23 +125,5 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(response);
-    }
-
-    private boolean isClientAbortException(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            String className = current.getClass().getName();
-            String message = current.getMessage();
-            if ("org.apache.catalina.connector.ClientAbortException".equals(className)
-                    || "org.springframework.web.context.request.async.AsyncRequestNotUsableException".equals(className)) {
-                return true;
-            }
-            if (message != null
-                    && (message.contains("Broken pipe") || message.contains("Connection reset by peer"))) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
     }
 }
