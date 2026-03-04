@@ -32,6 +32,9 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long> {
     @Query("SELECT c FROM Campaign c WHERE c.status = 'READY' AND c.scheduledAt <= :now ORDER BY c.scheduledAt ASC")
     List<Campaign> findReadyToStart(@Param("now") LocalDateTime now);
 
+    @Query("SELECT c FROM Campaign c WHERE c.status = 'READY' AND c.scheduledAt <= :now AND c.startedAt IS NULL ORDER BY c.scheduledAt ASC")
+    List<Campaign> findReadyToExecute(@Param("now") LocalDateTime now);
+
     @Query("SELECT c FROM Campaign c WHERE c.status IN ('READY', 'RUNNING') ORDER BY c.scheduledAt ASC")
     List<Campaign> findPending();
 

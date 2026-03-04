@@ -2,8 +2,11 @@ package com.ktb.notification.controller;
 
 import com.ktb.common.dto.ApiResponse;
 import com.ktb.notification.dto.request.NoticeCreateRequest;
+import com.ktb.notification.dto.request.NoticePublishRequest;
 import com.ktb.notification.dto.request.NoticeUpdateRequest;
+import com.ktb.notification.dto.response.NoticePublishResult;
 import com.ktb.notification.dto.response.NoticeResponse;
+import com.ktb.notification.service.NoticePublishApplicationService;
 import com.ktb.notification.service.NoticeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class NoticeController {
 
     private final NoticeService noticeService;
+    private final NoticePublishApplicationService noticePublishApplicationService;
 
     @GetMapping("/notices")
     @Operation(summary = "공지사항 목록 조회", description = "발행된 공지사항 목록을 조회합니다.")
@@ -112,8 +116,8 @@ public class NoticeController {
         return ResponseEntity.ok(new ApiResponse<>("notice_updated_success", result));
     }
 
-    @PostMapping("/admin/notices/{noticeId}/publish")
-    @Operation(summary = "[관리자] 공지사항 발행", description = "공지사항을 발행합니다.")
+    @PostMapping("/admin/notices/{noticeId}/publication")
+    @Operation(summary = "[관리자] 공지사항 발행", description = "공지사항을 발행하고 알림을 생성합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "발행 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 상태 전이",
@@ -121,11 +125,12 @@ public class NoticeController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "공지사항 없음",
                     content = @Content(schema = @Schema(implementation = com.ktb.common.dto.CommonErrorResponse.class)))
     })
-    public ResponseEntity<ApiResponse<NoticeResponse>> publishNotice(
+    public ResponseEntity<ApiResponse<NoticePublishResult>> publishNotice(
             @Parameter(description = "공지사항 ID", example = "1")
-            @PathVariable Long noticeId
+            @PathVariable Long noticeId,
+            @Valid @RequestBody NoticePublishRequest request
     ) {
-        NoticeResponse result = noticeService.publishNotice(noticeId);
+        NoticePublishResult result = noticePublishApplicationService.publish(noticeId, request);
         return ResponseEntity.ok(new ApiResponse<>("notice_published_success", result));
     }
 
