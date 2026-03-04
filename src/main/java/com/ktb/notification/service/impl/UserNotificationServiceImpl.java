@@ -5,13 +5,13 @@ import com.ktb.auth.service.UserAccountService;
 import com.ktb.notification.domain.Notice;
 import com.ktb.notification.domain.UserNotification;
 import com.ktb.notification.domain.enums.NotificationTypeCd;
-import com.ktb.notification.dto.response.UnreadCountResponse;
 import com.ktb.notification.dto.response.UserNotificationResponse;
 import com.ktb.notification.exception.NoticeNotFoundException;
 import com.ktb.notification.exception.UserNotificationNotFoundException;
 import com.ktb.notification.repository.NoticeRepository;
 import com.ktb.notification.repository.UserNotificationRepository;
 import com.ktb.notification.service.UserNotificationService;
+import com.ktb.notification.sse.UnreadEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +26,7 @@ public class UserNotificationServiceImpl implements UserNotificationService {
     private final UserNotificationRepository userNotificationRepository;
     private final UserAccountService userAccountService;
     private final NoticeRepository noticeRepository;
+    private final UnreadEventPublisher unreadEventPublisher;
 
     @Override
     public Page<UserNotificationResponse> getNotifications(Long accountId, Pageable pageable) {
@@ -34,9 +35,8 @@ public class UserNotificationServiceImpl implements UserNotificationService {
     }
 
     @Override
-    public UnreadCountResponse getUnreadCount(Long accountId) {
-        long count = userNotificationRepository.countUnreadByAccountId(accountId);
-        return UnreadCountResponse.of(count);
+    public boolean hasUnread(Long accountId) {
+        return userNotificationRepository.countUnreadByAccountId(accountId) > 0;
     }
 
     @Override
@@ -48,13 +48,18 @@ public class UserNotificationServiceImpl implements UserNotificationService {
 
         notification.markAsRead();
 
+        boolean hasUnread = userNotificationRepository.countUnreadByAccountId(accountId) > 0;
+        unreadEventPublisher.publish(accountId, hasUnread);
+
         return UserNotificationResponse.from(notification);
     }
 
     @Override
     @Transactional
     public int markAllAsRead(Long accountId) {
-        return userNotificationRepository.markAllAsReadByAccountId(accountId);
+        int count = userNotificationRepository.markAllAsReadByAccountId(accountId);
+        unreadEventPublisher.publish(accountId, false);
+        return count;
     }
 
     @Override
@@ -79,6 +84,7 @@ public class UserNotificationServiceImpl implements UserNotificationService {
         );
 
         userNotificationRepository.save(notification);
+        unreadEventPublisher.publish(accountId, true);
     }
 
     @Override
@@ -97,5 +103,6 @@ public class UserNotificationServiceImpl implements UserNotificationService {
         UserNotification notification = UserNotification.createFromNotice(account, notice);
 
         userNotificationRepository.save(notification);
+        unreadEventPublisher.publish(accountId, true);
     }
 }
