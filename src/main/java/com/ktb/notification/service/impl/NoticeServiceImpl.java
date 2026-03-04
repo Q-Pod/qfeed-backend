@@ -5,8 +5,8 @@ import com.ktb.notification.dto.request.NoticeCreateRequest;
 import com.ktb.notification.dto.request.NoticeUpdateRequest;
 import com.ktb.notification.dto.response.NoticeResponse;
 import com.ktb.notification.exception.NoticeNotFoundException;
+import com.ktb.notification.repository.NoticeRepository;
 import com.ktb.notification.service.NoticeService;
-import com.ktb.notification.service.NoticeStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,17 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NoticeServiceImpl implements NoticeService {
 
-    private final NoticeStore noticeStore;
+    private final NoticeRepository noticeRepository;
 
     @Override
     public Page<NoticeResponse> getPublishedNotices(Pageable pageable) {
-        return noticeStore.findPublished(pageable)
+        return noticeRepository.findPublished(pageable)
                 .map(NoticeResponse::from);
     }
 
     @Override
     public NoticeResponse getNotice(Long noticeId) {
-        Notice notice = noticeStore.findActiveById(noticeId)
+        Notice notice = noticeRepository.findActiveById(noticeId)
                 .orElseThrow(() -> new NoticeNotFoundException(noticeId));
 
         return NoticeResponse.from(notice);
@@ -43,7 +43,7 @@ public class NoticeServiceImpl implements NoticeService {
                 request.deeplink()
         );
 
-        Notice saved = noticeStore.save(notice);
+        Notice saved = noticeRepository.save(notice);
 
         return NoticeResponse.from(saved);
     }
@@ -51,7 +51,7 @@ public class NoticeServiceImpl implements NoticeService {
     @Override
     @Transactional
     public NoticeResponse updateNotice(Long noticeId, NoticeUpdateRequest request) {
-        Notice notice = noticeStore.findActiveById(noticeId)
+        Notice notice = noticeRepository.findActiveById(noticeId)
                 .orElseThrow(() -> new NoticeNotFoundException(noticeId));
 
         if (request.title() != null) {
@@ -70,7 +70,7 @@ public class NoticeServiceImpl implements NoticeService {
     @Override
     @Transactional
     public NoticeResponse publishNotice(Long noticeId) {
-        Notice notice = noticeStore.findActiveById(noticeId)
+        Notice notice = noticeRepository.findActiveById(noticeId)
                 .orElseThrow(() -> new NoticeNotFoundException(noticeId));
 
         notice.publish();
@@ -81,7 +81,7 @@ public class NoticeServiceImpl implements NoticeService {
     @Override
     @Transactional
     public void deleteNotice(Long noticeId) {
-        Notice notice = noticeStore.findActiveById(noticeId)
+        Notice notice = noticeRepository.findActiveById(noticeId)
                 .orElseThrow(() -> new NoticeNotFoundException(noticeId));
 
         notice.delete();
@@ -89,7 +89,7 @@ public class NoticeServiceImpl implements NoticeService {
 
     @Override
     public Page<NoticeResponse> getAllNotices(Pageable pageable) {
-        return noticeStore.findAllActive(pageable)
+        return noticeRepository.findAllActive(pageable)
                 .map(NoticeResponse::from);
     }
 }

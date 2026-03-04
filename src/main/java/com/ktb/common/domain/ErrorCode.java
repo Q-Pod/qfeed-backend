@@ -159,6 +159,7 @@ public enum ErrorCode {
     CAMPAIGN_INVALID_STATUS_TRANSITION(400, "N033", "허용되지 않는 캠페인 상태 전이입니다"),
     CAMPAIGN_KEY_TOO_LONG(400, "N034", "캠페인 키는 200자를 초과할 수 없습니다"),
     CAMPAIGN_SCHEDULED_AT_REQUIRED(400, "N035", "캠페인 예약 시간은 필수입니다"),
+    CAMPAIGN_SCHEDULE_FAILED(422, "N036", "캠페인 스케줄링에 실패했습니다"),
 
     // ==================== Device 관련 ====================
     DEVICE_NOT_FOUND(404, "DEV001", "디바이스를 찾을 수 없습니다"),

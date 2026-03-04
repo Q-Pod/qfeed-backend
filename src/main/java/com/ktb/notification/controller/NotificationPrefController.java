@@ -68,4 +68,17 @@ public class NotificationPrefController {
         );
         return ResponseEntity.ok(new ApiResponse<>("preference_update_success", result));
     }
+
+    @PutMapping("/admin/all")
+    @Operation(summary = "모든 유저의 수신 설정 등록", description = "특정 알림 유형의 수신 설정을 변경합니다.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "변경 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+            content = @Content(schema = @Schema(implementation = com.ktb.common.dto.CommonErrorResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<NotificationPrefResponse>> insertAllUserPreference(
+    ) {
+        notificationPrefService.insertDefaultPreferencesForAllActiveUsers();
+        return ResponseEntity.ok(new ApiResponse<>("preference_update_success", null));
+    }
 }

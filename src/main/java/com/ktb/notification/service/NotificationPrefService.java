@@ -13,4 +13,6 @@ public interface NotificationPrefService {
     void initializePreferences(Long accountId);
 
     boolean isNotificationEnabled(Long accountId, NotificationTypeCd type);
+
+    void insertDefaultPreferencesForAllActiveUsers();
 }

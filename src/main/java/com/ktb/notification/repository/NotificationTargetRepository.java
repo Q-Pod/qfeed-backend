@@ -22,15 +22,12 @@ public interface NotificationTargetRepository extends JpaRepository<Notification
 
     @Query("SELECT t FROM NotificationTarget t WHERE t.campaign.id = :campaignId AND t.status = :status")
     List<NotificationTarget> findByCampaignIdAndStatus(
-            @Param("campaignId") Long campaignId,
-            @Param("status") NotificationTargetStatusCd status
+        @Param("campaignId") Long campaignId,
+        @Param("status") NotificationTargetStatusCd status
     );
 
     @Query("SELECT t FROM NotificationTarget t WHERE t.account.id = :accountId ORDER BY t.createdAt DESC")
     List<NotificationTarget> findByAccountId(@Param("accountId") Long accountId);
-
-    @Query("SELECT t FROM NotificationTarget t WHERE t.device.id = :deviceId ORDER BY t.createdAt DESC")
-    List<NotificationTarget> findByDeviceId(@Param("deviceId") Long deviceId);
 
     Optional<NotificationTarget> findByDedupeKey(String dedupeKey);
 
@@ -38,8 +35,8 @@ public interface NotificationTargetRepository extends JpaRepository<Notification
 
     @Query("SELECT COUNT(t) FROM NotificationTarget t WHERE t.campaign.id = :campaignId AND t.status = :status")
     long countByCampaignIdAndStatus(
-            @Param("campaignId") Long campaignId,
-            @Param("status") NotificationTargetStatusCd status
+        @Param("campaignId") Long campaignId,
+        @Param("status") NotificationTargetStatusCd status
     );
 
     @Query("SELECT COUNT(t) FROM NotificationTarget t WHERE t.campaign.id = :campaignId")
