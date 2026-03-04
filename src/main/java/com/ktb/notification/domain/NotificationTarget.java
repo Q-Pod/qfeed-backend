@@ -2,7 +2,6 @@ package com.ktb.notification.domain;
 
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.common.domain.BaseTimeEntity;
-import com.ktb.notification.domain.enums.NotificationProviderCd;
 import com.ktb.notification.domain.enums.NotificationTargetStatusCd;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,13 +23,12 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(
-        name = "NOTIFICATION_TARGET",
-        indexes = {
-                @Index(name = "idx_target_campaign_status", columnList = "campaign_id, status_cd"),
-                @Index(name = "idx_target_account", columnList = "account_id"),
-                @Index(name = "idx_target_device", columnList = "device_id"),
-                @Index(name = "idx_target_dedupe", columnList = "dedupe_key")
-        }
+    name = "NOTIFICATION_TARGET",
+    indexes = {
+        @Index(name = "idx_target_campaign_status", columnList = "campaign_id, status_cd"),
+        @Index(name = "idx_target_account", columnList = "account_id"),
+        @Index(name = "idx_target_dedupe", columnList = "dedupe_key")
+    }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -51,16 +49,8 @@ public class NotificationTarget extends BaseTimeEntity {
     private UserAccount account;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "device_id", nullable = false)
-    private UserDevice device;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "campaign_id", nullable = false)
+    @JoinColumn(name = "campaign_id", nullable = true)
     private Campaign campaign;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "provider_cd", nullable = false, length = 20)
-    private NotificationProviderCd provider;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status_cd", nullable = false, length = 20)
@@ -78,6 +68,9 @@ public class NotificationTarget extends BaseTimeEntity {
     @Column(name = "dedupe_key", unique = true, length = 200)
     private String dedupeKey;
 
+    @Column(name = "reference_id")
+    private Long referenceId;
+
     @Column(name = "queued_at")
     private LocalDateTime queuedAt;
 
@@ -86,46 +79,42 @@ public class NotificationTarget extends BaseTimeEntity {
 
     @Builder
     private NotificationTarget(
-            UserAccount account,
-            UserDevice device,
-            Campaign campaign,
-            NotificationProviderCd provider,
-            String title,
-            String body,
-            String deeplink,
-            String dedupeKey
+        UserAccount account,
+        Campaign campaign,
+        String title,
+        String body,
+        String deeplink,
+        String dedupeKey,
+        Long referenceId
     ) {
         this.account = account;
-        this.device = device;
         this.campaign = campaign;
-        this.provider = provider;
         this.title = title;
         this.body = body;
         this.deeplink = deeplink;
         this.dedupeKey = dedupeKey;
+        this.referenceId = referenceId;
         this.status = NotificationTargetStatusCd.PENDING;
     }
 
     public static NotificationTarget create(
-            UserAccount account,
-            UserDevice device,
-            Campaign campaign,
-            NotificationProviderCd provider,
-            String title,
-            String body,
-            String deeplink,
-            String dedupeKey
+        UserAccount account,
+        Campaign campaign,
+        String title,
+        String body,
+        String deeplink,
+        String dedupeKey,
+        Long referenceId
     ) {
         return NotificationTarget.builder()
-                .account(account)
-                .device(device)
-                .campaign(campaign)
-                .provider(provider)
-                .title(title)
-                .body(body)
-                .deeplink(deeplink)
-                .dedupeKey(dedupeKey)
-                .build();
+            .account(account)
+            .campaign(campaign)
+            .title(title)
+            .body(body)
+            .deeplink(deeplink)
+            .dedupeKey(dedupeKey)
+            .referenceId(referenceId)
+            .build();
     }
 
     public void markAsQueued() {

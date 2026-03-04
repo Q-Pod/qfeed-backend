@@ -5,8 +5,8 @@ import com.ktb.auth.service.UserAccountService;
 import com.ktb.notification.domain.UserNotificationPref;
 import com.ktb.notification.domain.enums.NotificationTypeCd;
 import com.ktb.notification.dto.response.NotificationPrefResponse;
+import com.ktb.notification.repository.UserNotificationPrefRepository;
 import com.ktb.notification.service.NotificationPrefService;
-import com.ktb.notification.service.NotificationPrefStore;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,16 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NotificationPrefServiceImpl implements NotificationPrefService {
 
-    private final NotificationPrefStore prefStore;
+    private final UserNotificationPrefRepository prefRepository;
     private final UserAccountService userAccountService;
 
     @Override
     public List<NotificationPrefResponse> getPreferences(Long accountId) {
-        List<UserNotificationPref> preferences = prefStore.findAllByAccountId(accountId);
+        List<UserNotificationPref> preferences = prefRepository.findAllByAccountId(accountId);
 
         if (preferences.isEmpty()) {
             initializePreferencesInternal(accountId);
-            preferences = prefStore.findAllByAccountId(accountId);
+            preferences = prefRepository.findAllByAccountId(accountId);
         }
 
         return preferences.stream()
@@ -38,7 +38,7 @@ public class NotificationPrefServiceImpl implements NotificationPrefService {
     @Override
     @Transactional
     public NotificationPrefResponse updatePreference(Long accountId, NotificationTypeCd type, boolean enabled) {
-        UserNotificationPref pref = prefStore.findByAccountIdAndType(accountId, type)
+        UserNotificationPref pref = prefRepository.findByAccountIdAndNotificationType(accountId, type)
                 .orElseGet(() -> createPreference(accountId, type));
 
         pref.updateEnabled(enabled);
@@ -54,9 +54,14 @@ public class NotificationPrefServiceImpl implements NotificationPrefService {
 
     @Override
     public boolean isNotificationEnabled(Long accountId, NotificationTypeCd type) {
-        return prefStore.findByAccountIdAndType(accountId, type)
+        return prefRepository.findByAccountIdAndNotificationType(accountId, type)
                 .map(UserNotificationPref::isEnabled)
                 .orElse(true);
+    }
+
+    @Override
+    public void insertDefaultPreferencesForAllActiveUsers() {
+        prefRepository.insertDefaultPreferencesForAllActiveUsers();
     }
 
     @Transactional
@@ -64,10 +69,10 @@ public class NotificationPrefServiceImpl implements NotificationPrefService {
         UserAccount account = userAccountService.findById(accountId);
 
         Arrays.stream(NotificationTypeCd.values())
-                .filter(type -> !prefStore.existsByAccountIdAndType(accountId, type))
+                .filter(type -> !prefRepository.existsByAccountIdAndNotificationType(accountId, type))
                 .forEach(type -> {
                     UserNotificationPref pref = UserNotificationPref.create(account, type);
-                    prefStore.save(pref);
+                    prefRepository.save(pref);
                 });
     }
 
@@ -75,6 +80,6 @@ public class NotificationPrefServiceImpl implements NotificationPrefService {
         UserAccount account = userAccountService.findById(accountId);
 
         UserNotificationPref pref = UserNotificationPref.create(account, type);
-        return prefStore.save(pref);
+        return prefRepository.save(pref);
     }
 }

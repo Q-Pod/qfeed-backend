@@ -5,8 +5,8 @@ import com.ktb.notification.dto.request.CampaignCreateRequest;
 import com.ktb.notification.dto.response.CampaignResponse;
 import com.ktb.notification.exception.CampaignKeyDuplicateException;
 import com.ktb.notification.exception.CampaignNotFoundException;
+import com.ktb.notification.repository.CampaignRepository;
 import com.ktb.notification.service.CampaignService;
-import com.ktb.notification.service.CampaignStore;
 import java.util.List;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CampaignServiceImpl implements CampaignService {
 
-    private final CampaignStore campaignStore;
+    private final CampaignRepository campaignRepository;
 
     @Override
     @Transactional
     public CampaignResponse createCampaign(CampaignCreateRequest request) {
-        if (campaignStore.existsByCampaignKey(request.campaignKey())) {
+        if (campaignRepository.existsByCampaignKey(request.campaignKey())) {
             throw new CampaignKeyDuplicateException(request.campaignKey());
         }
 
@@ -35,14 +35,14 @@ public class CampaignServiceImpl implements CampaignService {
                 request.scheduledAt()
         );
 
-        Campaign saved = campaignStore.save(campaign);
+        Campaign saved = campaignRepository.save(campaign);
 
         return CampaignResponse.from(saved);
     }
 
     @Override
     public CampaignResponse getCampaign(Long campaignId) {
-        Campaign campaign = campaignStore.findById(campaignId)
+        Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
         return CampaignResponse.from(campaign);
@@ -50,13 +50,13 @@ public class CampaignServiceImpl implements CampaignService {
 
     @Override
     public Page<CampaignResponse> getAllCampaigns(Pageable pageable) {
-        return campaignStore.findAllOrderByCreatedAtDesc(pageable)
+        return campaignRepository.findAllOrderByCreatedAtDesc(pageable)
                 .map(CampaignResponse::from);
     }
 
     @Override
     public List<CampaignResponse> getPendingCampaigns() {
-        return campaignStore.findPending().stream()
+        return campaignRepository.findPending().stream()
                 .map(CampaignResponse::from)
                 .toList();
     }
@@ -86,7 +86,7 @@ public class CampaignServiceImpl implements CampaignService {
     }
 
     private CampaignResponse transitionCampaign(Long campaignId, Consumer<Campaign> transition) {
-        Campaign campaign = campaignStore.findById(campaignId)
+        Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new CampaignNotFoundException(campaignId));
 
         transition.accept(campaign);

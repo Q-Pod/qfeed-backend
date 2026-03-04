@@ -50,8 +50,8 @@ public class UserNotificationController {
         return ResponseEntity.ok(new ApiResponse<>("notifications_retrieval_success", result));
     }
 
-    @GetMapping("/unread-count")
-    @Operation(summary = "안읽은 알림 수 조회", description = "안읽은 알림 개수를 조회합니다.")
+    @GetMapping("/unread")
+    @Operation(summary = "안읽은 알림 여부 조회", description = "안읽은 알림 여부를 조회합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
@@ -66,7 +66,7 @@ public class UserNotificationController {
         return ResponseEntity.ok(new ApiResponse<>("unread_count_retrieval_success", result));
     }
 
-    @PatchMapping("/{notificationId}/read")
+    @PatchMapping("/{notificationId}")
     @Operation(summary = "알림 읽음 처리", description = "특정 알림을 읽음 처리합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "읽음 처리 성공"),
