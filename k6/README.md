@@ -14,6 +14,13 @@ k6/
 ├── metrics.js     # 메트릭 API 테스트
 ├── users.js       # 사용자 학습 API 테스트
 ├── all.js         # 전체 통합 테스트
+├── userflow/
+│   ├── setup.js              # 토큰 풀 생성 + VU별 토큰 분배
+│   ├── flow_utils.js         # 유저 시나리오 공통 유틸(인증/폴링/S3 mock 등)
+│   ├── practiceflow.js       # 연습모드 시나리오 단독 실행
+│   ├── realflow.js           # 실전모드 시나리오 단독 실행
+│   ├── interview_flow.js     # 연습+실전 혼합 시나리오 (비율 조절 가능)
+│   └── README.md             # 유저 플로우 부하테스트 독립 실행 가이드
 └── README.md      # 이 문서
 ```
 
@@ -89,6 +96,54 @@ k6 run --env ACCESS_TOKEN=your_token k6/all.js
 # 다른 서버 주소로 실행
 k6 run --env BASE_URL=http://staging.example.com k6/all.js
 ```
+
+### 유저 시나리오 기반 플로우 테스트
+
+상세 운영 가이드: `k6/userflow/README.md`
+
+토큰 입력은 아래 3가지 중 하나를 사용합니다 (우선순위: `USER_TOKENS_JSON` > `ACCESS_TOKEN` > `USER_TOKEN_CSV`).
+
+- `USER_TOKEN_CSV`: CSV 파일 (`user_id`, `access_token`, `refresh_token`, `access_expires_at`)
+- `USER_TOKENS_JSON`: JSON 문자열 배열
+- `ACCESS_TOKEN` (+ 선택: `REFRESH_TOKEN`, `SINGLE_USER_ID`, `ACCESS_EXPIRES_AT`)
+
+```bash
+# 연습모드 단독 실행
+k6 run k6/userflow/practiceflow.js \
+  --env BASE_URL=http://localhost:8080 \
+  --env USER_TOKEN_CSV=loadtest/generated/user-access-token-list.csv \
+  --env PRACTICE_RATE=6
+
+# 실전모드 단독 실행
+k6 run k6/userflow/realflow.js \
+  --env BASE_URL=http://localhost:8080 \
+  --env USER_TOKEN_CSV=loadtest/generated/user-access-token-list.csv \
+  --env REAL_RATE=2 \
+  --env REAL_TURN_LIMIT=4
+
+# 연습/실전 혼합 실행 (비율 조절: PRACTICE_RATE : REAL_RATE)
+k6 run k6/userflow/interview_flow.js \
+  --env BASE_URL=http://localhost:8080 \
+  --env USER_TOKEN_CSV=loadtest/generated/user-access-token-list.csv \
+  --env PRACTICE_RATE=6 \
+  --env REAL_RATE=2 \
+  --env REAL_TURN_LIMIT=4
+
+# JSON 토큰 풀 예시 (CSV 없이 실행)
+k6 run k6/userflow/interview_flow.js \
+  --env BASE_URL=http://localhost:8080 \
+  --env USER_TOKENS_JSON='[{"user_id":1,"access_token":"...","refresh_token":"..."},{"user_id":2,"access_token":"...","refresh_token":"..."}]' \
+  --env PRACTICE_RATE=2 \
+  --env REAL_RATE=1
+```
+
+주요 환경변수:
+- `PRACTICE_RATE`, `REAL_RATE`: 연습/실전 사이클 비율 조절 (초당 시작 수)
+- `REAL_TURN_LIMIT`: 실전 질문-답변 턴 수(기본값 `4`)
+- `MOCK_AI`: AI(STT/TTS) mock 여부(기본값 `true`)
+- `MOCK_S3_UPLOAD`: S3 PUT 외부 호출 mock 여부(기본값 `true`)
+- `MOCK_S3_LATENCY_SEC`: mock PUT 지연 시간(기본값 `0.03`)
+- `ALLOW_STT_FALLBACK`: STT 실패 시 텍스트 fallback 허용(기본값 `true`)
 
 ### 결과 출력
 
