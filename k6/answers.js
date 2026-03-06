@@ -5,7 +5,9 @@
  * - GET  /api/answers (Auth 필요)
  * - GET  /api/answers/{answerId} (Auth 필요)
  * - POST /api/interview/answers (Auth 필요)
- * - POST /api/interview/sessions/{sessionId}/answers (Auth 필요)
+ * - POST /api/interview/sessions (Auth 필요)
+ * - POST /api/answers/real (Auth 필요, 반복 루프)
+ * - POST /api/interview/sessions/feedback/request (Auth 필요)
  * - GET  /api/interviews/answers/{answerId}/feedback (Auth 필요)
  *
  * 참고: 모든 엔드포인트가 인증 필요
@@ -26,7 +28,6 @@ const answerDuration = new Trend('answer_duration');
 // 테스트용 ID (실제 환경에서는 환경 변수로 설정)
 const TEST_ANSWER_ID = __ENV.TEST_ANSWER_ID || 1;
 const TEST_QUESTION_ID = __ENV.TEST_QUESTION_ID || 1;
-const TEST_SESSION_ID = __ENV.TEST_SESSION_ID || 'test-session-id';
 
 // ACCESS_TOKEN 환경 변수
 const ACCESS_TOKEN = __ENV.ACCESS_TOKEN || '';
@@ -128,23 +129,15 @@ export default function () {
     });
 }
 
-/**
- * 답변 제출 테스트 (별도 실행 권장)
- * 인증 토큰 필요, 데이터 생성이 발생함
- */
 export function submitTests() {
-    if (!ACCESS_TOKEN) {
-        console.log('Skipping submit tests: ACCESS_TOKEN not set');
-        return;
-    }
-
     const authHeaders = {
         'Accept': 'application/json',
         'Authorization': `Bearer ${ACCESS_TOKEN}`,
     };
+    const jsonHeaders = Object.assign({}, authHeaders, { 'Content-Type': 'application/json' });
 
     group('Answer Submit Operations', function () {
-        // POST /api/interview/answers (텍스트 답변 제출)
+        // POST /api/interview/answers (텍스트 답변 제출 — 비세션)
         group('Submit Text Answer', function () {
             const fd = new FormData();
             fd.append('questionId', TEST_QUESTION_ID.toString());
@@ -171,30 +164,81 @@ export function submitTests() {
 
         sleep(1);
 
-        // POST /api/interview/sessions/{sessionId}/answers (세션 기반 답변)
+        // REAL 인터뷰 세션 반복 플로우: 세션 생성 → 답변/질문 루프 → AI 최종 피드백
         group('Submit Session Answer', function () {
-            const fd = new FormData();
-            fd.append('questionId', TEST_QUESTION_ID.toString());
-            fd.append('answerText', `K6 세션 답변 테스트 ${randomString(50)}`);
-
-            const res = http.post(
-                `${BASE_URL}/api/interview/sessions/${TEST_SESSION_ID}/answers`,
-                fd.body(),
-                {
-                    headers: Object.assign({}, authHeaders, {
-                        'Content-Type': `multipart/form-data; boundary=${fd.boundary}`,
-                    }),
-                }
+            // 1. 세션 생성 (REAL_INTERVIEW) — 첫 질문 포함
+            const sessionRes = http.post(
+                `${BASE_URL}/api/interview/sessions`,
+                JSON.stringify({ interviewType: 'REAL_INTERVIEW', questionType: 'CS' }),
+                { headers: jsonHeaders }
             );
 
-            // 세션이 없거나 구현이 완료되지 않은 경우 다양한 응답 가능
-            const success = check(res, {
-                'session answer returns expected status': (r) =>
-                    r.status === 201 || r.status === 404 || r.status === 409,
+            const sessionCreated = check(sessionRes, {
+                'session created returns 200 or 201': (r) => r.status === 200 || r.status === 201,
             });
 
-            answerErrorRate.add(!success);
-            answerDuration.add(res.timings.duration);
+            answerErrorRate.add(!sessionCreated);
+            answerDuration.add(sessionRes.timings.duration);
+
+            if (!sessionCreated) {
+                return;
+            }
+
+            const sessionData = JSON.parse(sessionRes.body).data;
+            const sessionId = sessionData.session_id;
+            let currentQuestion = sessionData.question_text;
+
+            // 2. 답변-질문 반복 루프 (최대 MAX_TURNS번 또는 is_final 시 종료)
+            const MAX_TURNS = 9;
+            for (let turn = 0; turn < MAX_TURNS; turn++) {
+                sleep(1);
+
+                const answerRes = http.post(
+                    `${BASE_URL}/api/answers/real`,
+                    JSON.stringify({
+                        sessionId: sessionId,
+                        answerText: `K6 부하 테스트 ${turn + 1}번 답변 ${randomString(30)}`,
+                        question: currentQuestion,
+                        questionType: 'CS',
+                    }),
+                    { headers: jsonHeaders }
+                );
+
+                const answerSuccess = check(answerRes, {
+                    'session answer returns 200 or 201': (r) => r.status === 200 || r.status === 201,
+                });
+
+                answerErrorRate.add(!answerSuccess);
+                answerDuration.add(answerRes.timings.duration);
+
+                if (!answerSuccess) {
+                    break;
+                }
+
+                const answerBody = JSON.parse(answerRes.body).data;
+
+                if (answerBody.is_final || !answerBody.next_question) {
+                    break;
+                }
+
+                currentQuestion = answerBody.next_question.content;
+            }
+
+            // 3. AI 최종 피드백 요청
+            sleep(1);
+
+            const feedbackRes = http.post(
+                `${BASE_URL}/api/interview/sessions/feedback/request`,
+                JSON.stringify({ sessionId: sessionId }),
+                { headers: jsonHeaders }
+            );
+
+            const feedbackSuccess = check(feedbackRes, {
+                'final feedback returns 200 or 202': (r) => r.status === 200 || r.status === 202,
+            });
+
+            answerErrorRate.add(!feedbackSuccess);
+            answerDuration.add(feedbackRes.timings.duration);
         });
     });
 }

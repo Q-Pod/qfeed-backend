@@ -8,6 +8,7 @@
  *   k6 run k6/all.js
  *   k6 run --env BASE_URL=http://localhost:8080 k6/all.js
  *   k6 run --env ACCESS_TOKEN=your_token k6/all.js
+ *   k6 run --env LOAD_TEST_USER_ID=1 k6/all.js   (loadtest 프로파일 서버 사용 시)
  *   k6 run --out json=results.json k6/all.js
  */
 
@@ -15,6 +16,7 @@ import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
 import { BASE_URL, getHeaders, randomInt, randomString } from './config.js';
+import {submitTests} from "./answers";
 
 // 시나리오 기반 부하 설정
 export const options = {
@@ -45,18 +47,31 @@ export const options = {
             startTime: '30s',  // 읽기 테스트 시작 후 30초 뒤 시작
         },
         // 인증 시나리오
-        // auth_flow: {
-        //     executor: 'constant-vus',
-        //     vus: 5,
-        //     duration: '3m',
-        //     exec: 'authOperations',
-        // },
+        auth_flow: {
+            executor: 'constant-vus',
+            vus: 5,
+            duration: '3m',
+            exec: 'authOperations',
+        },
+        // 인터뷰 세션 시나리오 (읽기+쓰기 혼합 — AI 호출 포함)
+        interview_session: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '30s', target: 2 },
+                { duration: '2m', target: 5 },
+                { duration: '30s', target: 0 },
+            ],
+            exec: 'interviewSessionOperations',
+            startTime: '30s',  // 시스템 워밍업 후 시작
+        },
     },
     thresholds: {
         http_req_duration: ['p(95)<500', 'p(99)<1000'],
         http_req_failed: ['rate<0.01'],
         'http_req_duration{scenario:read_heavy}': ['p(95)<300'],
         'http_req_duration{scenario:write_operations}': ['p(95)<1000'],
+        'http_req_duration{scenario:interview_session}': ['p(95)<15000'],  // AI 호출 포함
     },
 };
 
@@ -517,6 +532,13 @@ function exchangeCode() {
         duration.add(res.timings.duration);
         requestCounter.add(1);
     });
+}
+
+// ========== Interview Session Operations (읽기+쓰기 혼합) ==========
+
+export function interviewSessionOperations() {
+    submitTests();
+    sleep(randomInt(3, 8));  // 다음 세션 전 대기
 }
 
 // 기본 실행 함수 (scenarios가 정의되면 무시됨)

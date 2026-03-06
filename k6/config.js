@@ -8,6 +8,7 @@
 
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 export const ACCESS_TOKEN = __ENV.ACCESS_TOKEN || '';
+export const LOAD_TEST_USER_ID = __ENV.LOAD_TEST_USER_ID || '';
 
 /**
  * 공통 헤더 생성
@@ -18,8 +19,12 @@ export function getHeaders(withAuth = false) {
         'Accept': 'application/json',
     };
 
-    if (withAuth && ACCESS_TOKEN) {
-        headers['Authorization'] = `Bearer ${ACCESS_TOKEN}`;
+    if (withAuth) {
+        if (LOAD_TEST_USER_ID) {
+            headers['X-Load-Test-User-Id'] = LOAD_TEST_USER_ID;
+        } else if (ACCESS_TOKEN) {
+            headers['Authorization'] = `Bearer ${ACCESS_TOKEN}`;
+        }
     }
 
     return headers;
@@ -33,8 +38,12 @@ export function getMultipartHeaders(withAuth = false) {
         'Accept': 'application/json',
     };
 
-    if (withAuth && ACCESS_TOKEN) {
-        headers['Authorization'] = `Bearer ${ACCESS_TOKEN}`;
+    if (withAuth) {
+        if (LOAD_TEST_USER_ID) {
+            headers['X-Load-Test-User-Id'] = LOAD_TEST_USER_ID;
+        } else if (ACCESS_TOKEN) {
+            headers['Authorization'] = `Bearer ${ACCESS_TOKEN}`;
+        }
     }
 
     return headers;
