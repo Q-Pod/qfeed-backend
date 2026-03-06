@@ -1,0 +1,6 @@
+# 부하 테스트 전용 프로파일
+# 실행: --spring.profiles.active=local,loadtest
+#
+# LoadTestSecurityConfig (@Profile("loadtest")) 활성화
+# → X-Load-Test-User-Id 헤더로 인증, JWT 불필요
+# → 지정 userId는 DB에 실제 존재해야 함 (k6/data.sql 참조)

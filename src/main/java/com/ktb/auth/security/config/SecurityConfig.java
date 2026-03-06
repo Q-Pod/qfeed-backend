@@ -2,10 +2,13 @@ package com.ktb.auth.security.config;
 
 import com.ktb.auth.config.CorsProperties;
 import com.ktb.auth.security.filter.JwtAuthenticationFilter;
+import com.ktb.auth.security.filter.LoadTestAuthFilter;
 import com.ktb.auth.security.handler.CustomAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -32,6 +35,7 @@ public class SecurityConfig {
     private final SecurityProperties securityProperties;
 
     @Bean
+    @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -64,6 +68,37 @@ public class SecurityConfig {
                 )
 
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(1)
+    @Profile("loadtest")
+    public SecurityFilterChain loadTestFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+            .authorizeHttpRequests(auth -> {
+                if (securityProperties.getIsAuthenticated()) {
+                    auth.requestMatchers(securityProperties.getPermitAllPatterns())
+                        .permitAll();
+
+                    auth.requestMatchers(securityProperties.getAnonymousOnlyPatterns())
+                        .anonymous();
+
+                    auth.anyRequest()
+                        .authenticated();
+                } else {
+                    auth.anyRequest()
+                        .permitAll();
+                }
+            })
+
+            .addFilterBefore(new LoadTestAuthFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
