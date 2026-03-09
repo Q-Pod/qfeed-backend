@@ -36,6 +36,7 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
+    @Profile("!loadtest")
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
