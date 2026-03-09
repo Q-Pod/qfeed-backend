@@ -1,0 +1,12 @@
+services:
+  ai-mock:
+    container_name: qfeed-ai-mock
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${AI_MOCK_PORT:-8000}:8000"
+    environment:
+      MOCK_FEEDBACK_DELAY_SEC: "${MOCK_FEEDBACK_DELAY_SEC:-40}"
+      MOCK_FOLLOW_UP_DELAY_SEC: "${MOCK_FOLLOW_UP_DELAY_SEC:-15}"
+      MOCK_STT_DELAY_SEC: "${MOCK_STT_DELAY_SEC:-1}"
+      MOCK_TTS_DELAY_SEC: "${MOCK_TTS_DELAY_SEC:-1.5}"
