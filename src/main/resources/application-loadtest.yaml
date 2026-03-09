@@ -4,3 +4,12 @@
 # LoadTestSecurityConfig (@Profile("loadtest")) 활성화
 # → X-Load-Test-User-Id 헤더로 인증, JWT 불필요
 # → 지정 userId는 DB에 실제 존재해야 함 (k6/data.sql 참조)
+spring:
+  security:
+    oauth2:
+      client:
+        provider:
+          kakao:
+            authorization-uri: http://localhost:18089/oauth/authorize
+            token-uri: http://localhost:18089/oauth/token
+            user-info-uri: http://localhost:18089/v2/user/me

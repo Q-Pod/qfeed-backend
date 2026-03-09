@@ -1,0 +1,17 @@
+services:
+  oauth-mock:
+    build:
+      context: ./oauth-mock
+    container_name: qfeed-oauth-mock
+    restart: unless-stopped
+    depends_on:
+      oauth-mock-redis:
+        condition: service_healthy
+    environment:
+      PORT: 18089
+      REDIS_URL: redis://redis:6379
+      REDIS_PREFIX: "loadtest:kakao:"
+      TOKEN_TTL_SECONDS: 3600
+      ID_BASE: 9000000
+    ports:
+      - "18089:18089"

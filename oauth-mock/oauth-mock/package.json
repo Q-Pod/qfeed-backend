@@ -1,0 +1,15 @@
+{
+  "name": "qfeed-kakao-oauth-mock",
+  "version": "1.0.0",
+  "description": "Redis-backed Kakao OAuth mock for load tests",
+  "main": "server.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ioredis": "^5.4.2"
+  }
+}
