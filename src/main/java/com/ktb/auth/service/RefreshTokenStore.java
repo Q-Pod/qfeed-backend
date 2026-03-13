@@ -23,4 +23,11 @@ public interface RefreshTokenStore {
      * @return RefreshTokenInfo (Optional)
      */
     Optional<RefreshTokenInfo> findByTokenHash(String tokenHash);
+
+    /**
+     * 토큰 사용 처리 (used=true, 캐시 무효화 포함)
+     *
+     * @param tokenId Refresh Token ID
+     */
+    void markAsUsed(Long tokenId);
 }

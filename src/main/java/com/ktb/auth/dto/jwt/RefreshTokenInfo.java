@@ -6,6 +6,7 @@ public record RefreshTokenInfo(
         Long id,
         Long familyId,
         boolean used,
-        LocalDateTime expiresAt
+        LocalDateTime expiresAt,
+        String tokenHash
 ) {
 }

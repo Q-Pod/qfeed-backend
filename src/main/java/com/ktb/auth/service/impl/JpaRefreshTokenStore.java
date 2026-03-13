@@ -4,18 +4,17 @@ import com.ktb.auth.domain.RefreshToken;
 import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
+import com.ktb.auth.exception.token.InvalidRefreshTokenException;
 import com.ktb.auth.repository.RefreshTokenRepository;
 import com.ktb.auth.repository.TokenFamilyRepository;
 import com.ktb.auth.service.RefreshTokenStore;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Primary
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class JpaRefreshTokenStore implements RefreshTokenStore {
@@ -45,7 +44,16 @@ public class JpaRefreshTokenStore implements RefreshTokenStore {
                         token.getId(),
                         token.getFamily().getId(),
                         token.getUsed(),
-                        token.getExpiresAt()
+                        token.getExpiresAt(),
+                        token.getTokenHash()
                 ));
+    }
+
+    @Override
+    @Transactional
+    public void markAsUsed(Long tokenId) {
+        RefreshToken token = refreshTokenRepository.findById(tokenId)
+                .orElseThrow(InvalidRefreshTokenException::new);
+        token.markAsUsed();
     }
 }
