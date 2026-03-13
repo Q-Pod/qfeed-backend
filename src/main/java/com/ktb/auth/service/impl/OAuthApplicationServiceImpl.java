@@ -13,13 +13,14 @@ import com.ktb.auth.dto.OAuthLoginResult;
 import com.ktb.auth.dto.TokenFamilyInfo;
 import com.ktb.auth.dto.UserInfo;
 import com.ktb.auth.dto.jwt.RefreshTokenClaims;
-import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.dto.jwt.TokenRefreshResult;
 import com.ktb.auth.dto.response.KakaoUserInfoResponse;
 import com.ktb.auth.exception.family.FamilyOwnershipException;
-import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
 import com.ktb.auth.exception.oauth.OAuthProviderException;
 import com.ktb.auth.exception.oauth.UnsupportedProviderException;
+import com.ktb.auth.exception.family.FamilyRevokedException;
+import com.ktb.auth.exception.token.InvalidRefreshTokenException;
+import com.ktb.auth.exception.token.TokenReuseDetectedException;
 import com.ktb.auth.service.OAuthApplicationService;
 import com.ktb.auth.service.OAuthDomainService;
 import com.ktb.auth.service.RTRService;
@@ -136,7 +137,8 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
                 payload.nickname()
         );
 
-        tokenService.storeRefreshToken(family.id(), refreshToken);
+        long ttlMillis = tokenService.getRefreshTokenDuration().toMillis();
+        tokenFamilyStore.initFamilyState(family.uuid(), tokenService.generateTokenHash(refreshToken), ttlMillis);
 
         return new OAuthLoginResult(
                 accessToken,
@@ -146,32 +148,34 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     }
 
     @Override
-    @Transactional
     public TokenRefreshResult refreshTokens(String refreshToken) {
         RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
 
-        RefreshTokenInfo tokenInfo = tokenService.getStoredRefreshToken(refreshToken);
+        String oldHash = tokenService.generateTokenHash(refreshToken);
+        String newRefreshToken = tokenService.issueRefreshToken(
+                claims.userId(),
+                claims.familyUuid(),
+                claims.userNickname()
+        );
+        String newHash = tokenService.generateTokenHash(newRefreshToken);
+        long ttlMillis = tokenService.getRefreshTokenDuration().toMillis();
 
-        rtrService.detectReuse(tokenInfo);
-        rtrService.validateFamilyActive(tokenInfo.familyId());
-        rtrService.markAsUsed(tokenInfo.id());
+        int result = tokenFamilyStore.rotateFamilyToken(
+                claims.familyUuid(), oldHash, newHash, ttlMillis
+        );
 
-        TokenFamilyInfo family = tokenFamilyStore.findByUuid(claims.familyUuid())
-                .orElseThrow(() -> new TokenFamilyNotFoundException(claims.familyUuid()));
+        switch (result) {
+            case 1 -> { }
+            case -1 -> throw new InvalidRefreshTokenException();
+            case -2 -> throw new FamilyRevokedException();
+            case -3 -> throw new TokenReuseDetectedException(claims.familyUuid());
+        }
 
         String newAccessToken = tokenService.issueAccessToken(
                 claims.userId(),
                 DEFAULT_ROLES,
                 claims.userNickname()
         );
-        String newRefreshToken = tokenService.issueRefreshToken(
-                claims.userId(),
-                claims.familyUuid(),
-                claims.userNickname()
-        );
-
-        tokenFamilyStore.updateLastUsed(claims.familyUuid());
-        tokenService.storeRefreshToken(family.id(), newRefreshToken);
 
         log.info("Token Refresh 성공: userId={}, familyUuid={}", claims.userId(), claims.familyUuid());
 
@@ -191,8 +195,7 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
             throw new FamilyOwnershipException();
         }
 
-        RefreshTokenInfo tokenInfo = tokenService.getStoredRefreshToken(refreshToken);
-        rtrService.revokeFamily(tokenInfo.familyId(), RevokeReason.USER_LOGOUT);
+        tokenFamilyStore.revokeFamilyState(claims.familyUuid(), RevokeReason.USER_LOGOUT);
 
         log.info("로그아웃 성공: accountId={}, familyUuid={}", accountId, claims.familyUuid());
     }
@@ -200,7 +203,7 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     @Override
     @Transactional
     public int logoutAll(Long accountId) {
-        int count = rtrService.revokeAllFamilies(accountId, RevokeReason.USER_LOGOUT);
+        int count = tokenFamilyStore.revokeAllFamilyStates(accountId, RevokeReason.USER_LOGOUT);
 
         log.info("전체 로그아웃 성공: accountId={}, revokedCount={}", accountId, count);
         return count;

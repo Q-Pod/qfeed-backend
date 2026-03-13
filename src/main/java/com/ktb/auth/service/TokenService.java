@@ -1,9 +1,7 @@
 package com.ktb.auth.service;
 
 import com.ktb.auth.dto.jwt.RefreshTokenClaims;
-import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.dto.jwt.TokenClaims;
-
 import java.time.Duration;
 import java.util.List;
 
@@ -30,23 +28,7 @@ public interface TokenService {
     RefreshTokenClaims validateRefreshToken(String refreshToken);
 
     /**
-     * Refresh Token 저장
-     *
-     * @param familyId     Token Family ID
-     * @param refreshToken Refresh Token 문자열
-     */
-    void storeRefreshToken(Long familyId, String refreshToken);
-
-    /**
-     * 저장된 Refresh Token 조회
-     *
-     * @param refreshToken Refresh Token 문자열
-     * @return RefreshTokenInfo
-     */
-    RefreshTokenInfo getStoredRefreshToken(String refreshToken);
-
-    /**
-     * 토큰 해시 생성
+     * 토큰 해시 생성 (SHA-256)
      */
     String generateTokenHash(String token);
 
@@ -60,4 +42,3 @@ public interface TokenService {
      */
     long getAccessTokenExpiresSeconds();
 }
-
