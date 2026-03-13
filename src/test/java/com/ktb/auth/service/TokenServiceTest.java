@@ -1,7 +1,6 @@
 package com.ktb.auth.service;
 
 import com.ktb.auth.dto.jwt.RefreshTokenClaims;
-import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.dto.jwt.TokenClaims;
 import com.ktb.auth.exception.token.InvalidAccessTokenException;
 import com.ktb.auth.exception.token.InvalidRefreshTokenException;
@@ -17,13 +16,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,9 +28,6 @@ class TokenServiceTest {
 
     @Mock
     private JwtProvider jwtProvider;
-
-    @Mock
-    private RefreshTokenStore refreshTokenStore;
 
     @InjectMocks
     private TokenServiceImpl tokenService;
@@ -155,58 +148,6 @@ class TokenServiceTest {
         // then
         assertThat(refreshToken).isEqualTo(VALID_REFRESH_TOKEN);
         verify(jwtProvider).createRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME);
-    }
-
-    @Test
-    @DisplayName("저장된 Refresh Token 조회가 성공해야 한다")
-    void getStoredRefreshToken_WithValidToken_ShouldSucceed() {
-        // given
-        RefreshTokenInfo expectedInfo = new RefreshTokenInfo(10L, 1L, false, LocalDateTime.now().plusDays(7));
-
-        when(jwtProvider.generateTokenHash(VALID_REFRESH_TOKEN)).thenReturn(TOKEN_HASH);
-        when(refreshTokenStore.findByTokenHash(TOKEN_HASH)).thenReturn(Optional.of(expectedInfo));
-
-        // when
-        RefreshTokenInfo info = tokenService.getStoredRefreshToken(VALID_REFRESH_TOKEN);
-
-        // then
-        assertThat(info.id()).isEqualTo(10L);
-        assertThat(info.familyId()).isEqualTo(1L);
-        assertThat(info.used()).isFalse();
-        assertThat(info.expiresAt()).isAfter(LocalDateTime.now());
-
-        verify(jwtProvider).generateTokenHash(VALID_REFRESH_TOKEN);
-        verify(refreshTokenStore).findByTokenHash(TOKEN_HASH);
-    }
-
-    @Test
-    @DisplayName("존재하지 않는 Refresh Token 조회 시 예외가 발생해야 한다")
-    void getStoredRefreshToken_WithNonExistentToken_ShouldThrowException() {
-        // given
-        when(jwtProvider.generateTokenHash(anyString())).thenReturn("nonexistent-hash");
-        when(refreshTokenStore.findByTokenHash(anyString())).thenReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> tokenService.getStoredRefreshToken("nonexistent-token"))
-                .isInstanceOf(InvalidRefreshTokenException.class);
-
-        verify(refreshTokenStore).findByTokenHash("nonexistent-hash");
-    }
-
-    @Test
-    @DisplayName("Refresh Token 저장이 성공해야 한다")
-    void storeRefreshToken_ShouldSucceed() {
-        // given
-        Long familyId = 1L;
-        when(jwtProvider.generateTokenHash(VALID_REFRESH_TOKEN)).thenReturn(TOKEN_HASH);
-        when(jwtProvider.refreshTokenDuration()).thenReturn(Duration.ofDays(14));
-
-        // when
-        tokenService.storeRefreshToken(familyId, VALID_REFRESH_TOKEN);
-
-        // then
-        verify(jwtProvider).generateTokenHash(VALID_REFRESH_TOKEN);
-        verify(refreshTokenStore).save(eq(familyId), eq(TOKEN_HASH), any(LocalDateTime.class));
     }
 
     @Test

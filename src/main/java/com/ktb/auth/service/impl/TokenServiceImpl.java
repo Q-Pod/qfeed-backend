@@ -1,16 +1,13 @@
 package com.ktb.auth.service.impl;
 
 import com.ktb.auth.dto.jwt.RefreshTokenClaims;
-import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.dto.jwt.TokenClaims;
 import com.ktb.auth.exception.token.InvalidAccessTokenException;
 import com.ktb.auth.exception.token.InvalidRefreshTokenException;
 import com.ktb.auth.jwt.JwtProvider;
-import com.ktb.auth.service.RefreshTokenStore;
 import com.ktb.auth.service.TokenService;
 import io.jsonwebtoken.Claims;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +25,6 @@ public class TokenServiceImpl implements TokenService {
     private static final String CLAIM_FAMILY_UUID = "familyUuid";
 
     private final JwtProvider jwtProvider;
-    private final RefreshTokenStore refreshTokenStore;
 
     @Override
     public String issueAccessToken(Long accountId, List<String> roles, String nickname) {
@@ -75,21 +71,6 @@ public class TokenServiceImpl implements TokenService {
         } catch (Exception e) {
             throw new InvalidRefreshTokenException();
         }
-    }
-
-    @Override
-    @Transactional
-    public void storeRefreshToken(Long familyId, String refreshToken) {
-        String tokenHash = generateTokenHash(refreshToken);
-        LocalDateTime expiresAt = LocalDateTime.now().plus(getRefreshTokenDuration());
-        refreshTokenStore.save(familyId, tokenHash, expiresAt);
-    }
-
-    @Override
-    public RefreshTokenInfo getStoredRefreshToken(String refreshToken) {
-        String tokenHash = generateTokenHash(refreshToken);
-        return refreshTokenStore.findByTokenHash(tokenHash)
-                .orElseThrow(InvalidRefreshTokenException::new);
     }
 
     @Override

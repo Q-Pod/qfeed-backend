@@ -1,20 +1,13 @@
 package com.ktb.auth.service;
 
-import com.ktb.auth.domain.RefreshToken;
-import com.ktb.auth.domain.RevokeReason;
 import com.ktb.auth.domain.TokenFamily;
 import com.ktb.auth.domain.UserAccount;
 import com.ktb.auth.dto.TokenFamilyInfo;
-import com.ktb.auth.dto.jwt.RefreshTokenInfo;
 import com.ktb.auth.exception.account.AccountNotFoundException;
-import com.ktb.auth.exception.family.FamilyRevokedException;
-import com.ktb.auth.exception.family.TokenFamilyNotFoundException;
-import com.ktb.auth.exception.token.InvalidRefreshTokenException;
 import com.ktb.auth.repository.RefreshTokenRepository;
 import com.ktb.auth.repository.TokenFamilyRepository;
 import com.ktb.auth.repository.UserAccountRepository;
 import com.ktb.auth.service.impl.RTRServiceImpl;
-import com.ktb.common.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +15,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,170 +78,5 @@ class RTRServiceTest {
 
         verify(userAccountRepository).findById(USER_ID);
         verify(tokenFamilyRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("토큰 재사용 탐지 시 Family가 폐기되어야 한다")
-    void detectReuse_WithUsedToken_ShouldRevokeFamily() {
-        // given
-        RefreshTokenInfo usedToken = new RefreshTokenInfo(TOKEN_ID, FAMILY_ID, true, LocalDateTime.now().plusDays(7));
-
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
-
-        // when & then
-        assertThatThrownBy(() -> rtrService.detectReuse(usedToken))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("토큰 재사용이 탐지되었습니다");
-
-        verify(mockFamily).revoke(RevokeReason.REUSE_DETECTED);
-    }
-
-    @Test
-    @DisplayName("사용되지 않은 토큰은 재사용 탐지를 통과해야 한다")
-    void detectReuse_WithUnusedToken_ShouldPass() {
-        // given
-        RefreshTokenInfo unusedToken = new RefreshTokenInfo(TOKEN_ID, FAMILY_ID, false, LocalDateTime.now().plusDays(7));
-
-        // when
-        rtrService.detectReuse(unusedToken);
-
-        // then
-        verify(tokenFamilyRepository, never()).findById(any());
-    }
-
-    @Test
-    @DisplayName("토큰 사용 처리가 성공해야 한다")
-    void markAsUsed_ShouldSucceed() {
-        // given
-        RefreshToken mockToken = mock(RefreshToken.class);
-        when(refreshTokenRepository.findById(TOKEN_ID)).thenReturn(Optional.of(mockToken));
-
-        // when
-        rtrService.markAsUsed(TOKEN_ID);
-
-        // then
-        verify(mockToken).markAsUsed();
-        verify(refreshTokenRepository).findById(TOKEN_ID);
-    }
-
-    @Test
-    @DisplayName("[Edge Case] 존재하지 않는 RefreshToken 사용 처리 시 예외가 발생해야 한다")
-    void markAsUsed_WithNonExistentToken_ShouldThrowException() {
-        // given
-        when(refreshTokenRepository.findById(TOKEN_ID)).thenReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> rtrService.markAsUsed(TOKEN_ID))
-                .isInstanceOf(InvalidRefreshTokenException.class);
-
-        verify(refreshTokenRepository).findById(TOKEN_ID);
-    }
-
-    @Test
-    @DisplayName("Family 활성 상태 확인 - 정상 케이스")
-    void validateFamilyActive_WithActiveFamily_ShouldPass() {
-        // given
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(mockFamily.isRevoked()).thenReturn(false);
-        when(mockFamily.isExpired()).thenReturn(false);
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
-
-        // when
-        rtrService.validateFamilyActive(FAMILY_ID);
-
-        // then
-        verify(tokenFamilyRepository).findById(FAMILY_ID);
-        verify(mockFamily).isRevoked();
-        verify(mockFamily).isExpired();
-    }
-
-    @Test
-    @DisplayName("폐기된 Family 확인 시 예외가 발생해야 한다")
-    void validateFamilyActive_WithRevokedFamily_ShouldThrowException() {
-        // given
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(mockFamily.isRevoked()).thenReturn(true);
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
-
-        // when & then
-        assertThatThrownBy(() -> rtrService.validateFamilyActive(FAMILY_ID))
-                .isInstanceOf(FamilyRevokedException.class);
-
-        verify(tokenFamilyRepository).findById(FAMILY_ID);
-    }
-
-    @Test
-    @DisplayName("만료된 Family 확인 시 예외가 발생해야 한다")
-    void validateFamilyActive_WithExpiredFamily_ShouldThrowException() {
-        // given
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(mockFamily.isRevoked()).thenReturn(false);
-        when(mockFamily.isExpired()).thenReturn(true);
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
-
-        // when & then
-        assertThatThrownBy(() -> rtrService.validateFamilyActive(FAMILY_ID))
-                .isInstanceOf(FamilyRevokedException.class);
-
-        verify(tokenFamilyRepository).findById(FAMILY_ID);
-    }
-
-    @Test
-    @DisplayName("[Edge Case] 존재하지 않는 Family 조회 시 예외가 발생해야 한다")
-    void validateFamilyActive_WithNonExistentFamily_ShouldThrowException() {
-        // given
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> rtrService.validateFamilyActive(FAMILY_ID))
-                .isInstanceOf(TokenFamilyNotFoundException.class);
-
-        verify(tokenFamilyRepository).findById(FAMILY_ID);
-    }
-
-    @Test
-    @DisplayName("Family 폐기가 성공해야 한다")
-    void revokeFamily_ShouldSucceed() {
-        // given
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
-
-        // when
-        rtrService.revokeFamily(FAMILY_ID, RevokeReason.USER_LOGOUT);
-
-        // then
-        verify(mockFamily).revoke(RevokeReason.USER_LOGOUT);
-        verify(tokenFamilyRepository).findById(FAMILY_ID);
-    }
-
-    @Test
-    @DisplayName("[Edge Case] 이미 폐기된 Family 재폐기 시도 - 멱등성 확인")
-    void revokeFamily_AlreadyRevoked_ShouldBeIdempotent() {
-        // given
-        TokenFamily mockFamily = mock(TokenFamily.class);
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.of(mockFamily));
-
-        // when
-        rtrService.revokeFamily(FAMILY_ID, RevokeReason.USER_LOGOUT);
-        rtrService.revokeFamily(FAMILY_ID, RevokeReason.USER_LOGOUT);
-
-        // then
-        // revoke()가 두 번 호출되어도 예외가 발생하지 않아야 함 (멱등성)
-        verify(mockFamily, times(2)).revoke(RevokeReason.USER_LOGOUT);
-        verify(tokenFamilyRepository, times(2)).findById(FAMILY_ID);
-    }
-
-    @Test
-    @DisplayName("[Edge Case] 존재하지 않는 Family 폐기 시도 시 예외가 발생해야 한다")
-    void revokeFamily_WithNonExistentFamily_ShouldThrowException() {
-        // given
-        when(tokenFamilyRepository.findById(FAMILY_ID)).thenReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> rtrService.revokeFamily(FAMILY_ID, RevokeReason.USER_LOGOUT))
-                .isInstanceOf(TokenFamilyNotFoundException.class);
-
-        verify(tokenFamilyRepository).findById(FAMILY_ID);
     }
 }
