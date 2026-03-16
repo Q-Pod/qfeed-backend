@@ -170,6 +170,15 @@ public enum ErrorCode {
     NOTIFICATION_TARGET_NOT_FOUND(404, "NT001", "발송 대상을 찾을 수 없습니다"),
     NOTIFICATION_TARGET_DUPLICATE(409, "NT002", "중복 발송 대상입니다"),
 
+
+    // ==================== Portfolio 관련 ====================
+    PORTFOLIO_PROJECT_LIMIT_EXCEEDED(400, "PORT001", "포트폴리오당 3개의 프로젝트만 가질 수 있습니다."),
+    PORTFOLIO_NOT_FOUND(404, "PORT002", "포트폴리오를 찾을 수 없습니다."),
+
+    // ==================== Project 관련 ====================
+    PROJECT_REQUIRED(400, "PRO001", "프로젝트는 필수입니다."),
+    TECH_STACK_REQUIRED(400, "PRO002", "기술 스택은 필수입니다."),
+
     // ==================== 공통 ====================
     INVALID_INPUT(400, "C001", "입력값이 올바르지 않습니다"),
     INTERNAL_SERVER_ERROR(422, "C002", "서버 내부 오류가 발생했습니다"),
