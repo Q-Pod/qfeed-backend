@@ -15,10 +15,10 @@ public record PortfolioProjectRequest(
         @NotBlank
         String content,
 
-        @Size(max = 255)
-        String architectureImageUrl,
+        @Positive
+        Long architectureImageFileId,
 
         @NotEmpty
-        Set<@NotNull @Positive Long> techStackTagIds
+        Set<@NotNull @Positive Long> techStackIds
 ) {
 }

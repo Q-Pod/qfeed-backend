@@ -68,7 +68,7 @@ public class PortfolioController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
-                    description = "존재하지 않는 해시태그 또는 계정을 찾을 수 없음",
+                    description = "존재하지 않는 기술 스택 또는 계정을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = CommonErrorResponse.class))
             )
     })

@@ -353,6 +353,9 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
                         "(expected: ." + extensionByMime + ")"
                 );
             }
+        }
+
+        if (category == FileCategory.AUDIO || category == FileCategory.VIDEO || category == FileCategory.ARCHITECTURE) {
             validateClientFileNamePattern(category, request.fileName());
         }
     }
@@ -391,6 +394,17 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
             return timestamp
                     + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
                     + S3PresignedUrlConstants.FILE_TYPE_REAL_VIDEO
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + UUID.randomUUID()
+                    + "."
+                    + extension;
+        }
+
+        if (category == FileCategory.ARCHITECTURE) {
+            String timestamp = parseArchitectureClientFileNameTimestamp(request.fileName());
+            return timestamp
+                    + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
+                    + S3PresignedUrlConstants.FILE_TYPE_ARCHITECTURE
                     + S3PresignedUrlConstants.FILE_NAME_SEPARATOR
                     + UUID.randomUUID()
                     + "."
@@ -446,6 +460,10 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         }
         if (category == FileCategory.VIDEO) {
             parseVideoClientFileNameTimestamp(fileName);
+            return;
+        }
+        if (category == FileCategory.ARCHITECTURE) {
+            parseArchitectureClientFileNameTimestamp(fileName);
         }
     }
 
@@ -465,6 +483,15 @@ public class S3PresignedUrlServiceImpl implements S3PresignedUrlService {
         if (!matcher.matches()) {
             log.warn("Invalid VIDEO file_name pattern - fileName={}", fileName);
             throw new FileInvalidMetadataException(ErrorCode.FILE_VIDEO_FILE_NAME_PATTERN_INVALID);
+        }
+        return validateAndNormalizeClientTimestamp(matcher.group(1));
+    }
+
+    private String parseArchitectureClientFileNameTimestamp(String fileName) {
+        Matcher matcher = S3PresignedUrlConstants.ARCHITECTURE_FILE_NAME_PATTERN.matcher(fileName);
+        if (!matcher.matches()) {
+            log.warn("Invalid ARCHITECTURE file_name pattern - fileName={}", fileName);
+            throw new FileInvalidMetadataException(ErrorCode.FILE_ARCHITECTURE_FILE_NAME_PATTERN_INVALID);
         }
         return validateAndNormalizeClientTimestamp(matcher.group(1));
     }

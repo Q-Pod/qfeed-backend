@@ -1,9 +1,10 @@
 package com.ktb.portfolio.domain;
 
 import com.ktb.common.domain.BaseSoftDeleteEntity;
-import com.ktb.hashtag.domain.ProjectTechStack;
+import com.ktb.file.domain.File;
 import com.ktb.portfolio.exception.TechStackRequiredException;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -26,31 +27,33 @@ public class Project extends BaseSoftDeleteEntity {
     @JoinColumn(name = "portfolio_id", nullable = false)
     private Portfolio portfolio;
 
+    @Size(max = 100)
     @Column(name = "project_name", nullable = false, length = 100)
     private String projectName;
 
+    @Size(max = 1000)
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "architecture_image_url")
-    private String architectureImageUrl;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "architecture_file_id")
+    private File architectureImage;
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProjectTechStack> stacks = new ArrayList<>();
 
     @Builder
-    private Project(String projectName, String content, String architectureImageUrl) {
+    private Project(String projectName, String content, File architectureImage) {
         this.projectName = projectName;
         this.content = content;
-        this.architectureImageUrl = architectureImageUrl;
-
+        this.architectureImage = architectureImage;
     }
 
-    public static Project create(String projectName, String content, String architectureImageUrl) {
+    public static Project create(String projectName, String content, File architectureImage) {
         return Project.builder()
                 .projectName(projectName)
                 .content(content)
-                .architectureImageUrl(architectureImageUrl)
+                .architectureImage(architectureImage)
                 .build();
     }
 
@@ -62,8 +65,8 @@ public class Project extends BaseSoftDeleteEntity {
         this.content = content;
     }
 
-    public void updateArchitectureImageUrl(String architectureImageUrl) {
-        this.architectureImageUrl = architectureImageUrl;
+    public void updateArchitectureImage(File architectureImage) {
+        this.architectureImage = architectureImage;
     }
 
     public void addTechStack(ProjectTechStack techStack) {
