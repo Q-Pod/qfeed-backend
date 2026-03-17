@@ -12,15 +12,13 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
 
     @EntityGraph(attributePaths = {
             "projects",
-            "projects.stacks",
-            "projects.stacks.hashtag"
+            "projects.architectureImage"
     })
     Optional<Portfolio> findWithProjectsByAccount_IdAndDeletedAtIsNull(Long accountId);
 
     @EntityGraph(attributePaths = {
             "projects",
-            "projects.stacks",
-            "projects.stacks.hashtag"
+            "projects.architectureImage"
     })
     Optional<Portfolio> findWithProjectsByAccount_Id(Long accountId);
 }

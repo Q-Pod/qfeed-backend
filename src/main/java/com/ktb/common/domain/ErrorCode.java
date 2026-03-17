@@ -85,11 +85,15 @@ public enum ErrorCode {
     FILE_MULTIPART_COMPLETE_FAILED(422, "F021", "multipart 업로드 완료 처리에 실패했습니다"),
     FILE_MULTIPART_ABORT_FAILED(422, "F022", "multipart 업로드 중단 처리에 실패했습니다"),
     FILE_NOT_UPLOADED(422, "F023", "S3에 파일이 업로드되지 않았습니다"),
+    FILE_ARCHITECTURE_FILE_NAME_PATTERN_INVALID(400, "F025", "ARCHITECTURE file_name 패턴이 올바르지 않습니다"),
 
     // ==================== Hashtag 관련 ====================
     HASHTAG_NOT_FOUND(404, "H001", "해시태그를 찾을 수 없습니다"),
     HASHTAG_NAME_REQUIRED(400, "H002", "해시태그 이름은 필수입니다"),
     HASHTAG_NAME_TOO_LONG(400, "H003", "해시태그 이름은 100자를 초과할 수 없습니다"),
+
+    // ==================== Tech Stack 관련 ====================
+    TECH_STACK_NOT_FOUND(404, "TS001", "기술 스택을 찾을 수 없습니다"),
 
     // ==================== Metric 관련 ====================
     METRIC_NAME_REQUIRED(400, "M001", "평가 지표 이름은 필수입니다"),

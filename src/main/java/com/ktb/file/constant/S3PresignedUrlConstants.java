@@ -12,6 +12,7 @@ public final class S3PresignedUrlConstants {
     public static final String FILE_NAME_SEPARATOR = "_";
     public static final String FILE_TYPE_STT = "STT";
     public static final String FILE_TYPE_REAL_VIDEO = "REAL_VIDEO";
+    public static final String FILE_TYPE_ARCHITECTURE = "ARCHITECTURE";
 
     public static final DateTimeFormatter CLIENT_TIMESTAMP_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss");
@@ -25,6 +26,12 @@ public final class S3PresignedUrlConstants {
             "^(\\d{4}-\\d{2}-\\d{2}_\\d{2}:\\d{2}:\\d{2})_"
                     + FILE_TYPE_REAL_VIDEO
                     + "_[0-9a-fA-F-]{36}\\.(webm|mp4)$",
+            Pattern.CASE_INSENSITIVE
+    );
+    public static final Pattern ARCHITECTURE_FILE_NAME_PATTERN = Pattern.compile(
+            "^(\\d{4}-\\d{2}-\\d{2}_\\d{2}:\\d{2}:\\d{2})_"
+                    + FILE_TYPE_ARCHITECTURE
+                    + "_[0-9a-fA-F-]{36}\\.(jpg|jpeg|png|gif|svg)$",
             Pattern.CASE_INSENSITIVE
     );
 
