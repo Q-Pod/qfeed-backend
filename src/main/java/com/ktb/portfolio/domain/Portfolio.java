@@ -22,6 +22,7 @@ public class Portfolio extends BaseSoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "portfolio_id")
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
