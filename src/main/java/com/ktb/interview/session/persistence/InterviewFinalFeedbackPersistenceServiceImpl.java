@@ -1,5 +1,6 @@
 package com.ktb.interview.session.persistence;
 
+import com.ktb.async.contract.FeedbackCompletedEvent;
 import com.ktb.answer.domain.Answer;
 import com.ktb.answer.repository.AnswerRepository;
 import com.ktb.hashtag.domain.AnswerHashtag;
@@ -21,8 +22,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +41,7 @@ public class InterviewFinalFeedbackPersistenceServiceImpl implements InterviewFi
     private final MetricRepository metricRepository;
     private final AnswerMetricRepository answerMetricRepository;
     private final AnswerHashtagRepository answerHashtagRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * AI 피드백 응답을 Answer/Metric/Hashtag 저장 구조로 분해해 영속화합니다.
@@ -66,6 +70,16 @@ public class InterviewFinalFeedbackPersistenceServiceImpl implements InterviewFi
         answerRepository.save(answer);
 
         saveKeywordResult(answer, questionHashtags, feedback.keywordResult());
+
+        Map<String, Integer> metricsMap = metrics.stream()
+                .collect(Collectors.toMap(
+                        InterviewFeedbackMetricResponse::name,
+                        m -> m.score() == null ? 1 : m.score()
+                ));
+        String strengths = overall != null ? overall.strengths() : null;
+        String improvements = overall != null ? overall.improvements() : null;
+        eventPublisher.publishEvent(FeedbackCompletedEvent.create(
+                answer, metricsMap, null, strengths, improvements, null, null));
         log.info("persistAnswerFeedback success - answerId={}, sessionId={}", answer.getId(), answer.getSessionId());
     }
 
