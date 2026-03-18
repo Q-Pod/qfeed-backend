@@ -25,6 +25,7 @@ import com.ktb.auth.exception.token.TokenReuseDetectedException;
 import com.ktb.auth.service.impl.OAuthApplicationServiceImpl;
 import com.ktb.common.domain.ErrorCode;
 import com.ktb.common.exception.BusinessException;
+import com.ktb.fixture.TokenFamilyFixture;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -260,6 +261,7 @@ class OAuthApplicationServiceTest {
         String newAccessToken = "new.access.token";
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
+        when(tokenFamilyStore.findByUuid(FAMILY_UUID)).thenReturn(TokenFamilyFixture.activeFamilyOptional());
         when(tokenService.generateTokenHash(REFRESH_TOKEN)).thenReturn("old-hash");
         when(tokenService.issueRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn(newRefreshToken);
         when(tokenService.generateTokenHash(newRefreshToken)).thenReturn("new-hash");
@@ -286,6 +288,7 @@ class OAuthApplicationServiceTest {
         RefreshTokenClaims claims = new RefreshTokenClaims(USER_ID, USER_NICKNAME, FAMILY_UUID);
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
+        when(tokenFamilyStore.findByUuid(FAMILY_UUID)).thenReturn(TokenFamilyFixture.activeFamilyOptional());
         when(tokenService.generateTokenHash(REFRESH_TOKEN)).thenReturn("stale-hash");
         when(tokenService.issueRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn("new.refresh.token");
         when(tokenService.generateTokenHash("new.refresh.token")).thenReturn("new-hash");
@@ -351,6 +354,7 @@ class OAuthApplicationServiceTest {
         RefreshTokenClaims claims = new RefreshTokenClaims(USER_ID, USER_NICKNAME, FAMILY_UUID);
 
         when(tokenService.validateRefreshToken(REFRESH_TOKEN)).thenReturn(claims);
+        when(tokenFamilyStore.findByUuid(FAMILY_UUID)).thenReturn(TokenFamilyFixture.activeFamilyOptional());
         when(tokenService.generateTokenHash(REFRESH_TOKEN)).thenReturn("stale-hash");
         when(tokenService.issueRefreshToken(USER_ID, FAMILY_UUID, USER_NICKNAME)).thenReturn("new.refresh.token");
         when(tokenService.generateTokenHash("new.refresh.token")).thenReturn("new-hash");

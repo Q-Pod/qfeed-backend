@@ -17,6 +17,11 @@ import org.springframework.stereotype.Service;
 /**
  * Redis 기반 Token Family State Store
  * <p>
+ * 전략: DB SoT(TokenFamily 유효성) + Redis fast path(hash CAS)
+ * - initFamilyState: DB RefreshToken write + Redis HASH write
+ * - rotateFamilyToken: Redis Lua CAS only; 재사용 시 DB revoke
+ * - revoke*: Redis HASH(존재 시만) + DB revoke
+ * <p>
  * Key: auth:family:{familyUuid}  (HASH)
  * Fields:
  *   currentHash  → SHA256(현재 유효한 refresh token)
@@ -53,6 +58,18 @@ public class RedisTokenFamilyStore implements TokenFamilyStore {
         + "redis.call('HSET', KEYS[1], 'currentHash', ARGV[2])\n"
         + "redis.call('PEXPIRE', KEYS[1], ARGV[3])\n"
         + "return 1",
+        Long.class
+    );
+
+    /**
+     * key가 존재할 때만 revoked=1 설정 — 없으면 새 key를 생성하지 않음 (TTL 오염 방지)
+     */
+    private static final RedisScript<Long> REVOKE_IF_EXISTS_SCRIPT = RedisScript.of(
+        "if redis.call('EXISTS', KEYS[1]) == 1 then\n"
+        + "  redis.call('HSET', KEYS[1], 'revoked', '1')\n"
+        + "  return 1\n"
+        + "end\n"
+        + "return 0",
         Long.class
     );
 
@@ -93,7 +110,7 @@ public class RedisTokenFamilyStore implements TokenFamilyStore {
 
     @Override
     public void revokeFamilyState(String familyUuid, RevokeReason reason) {
-        redisTemplate.opsForHash().put(familyKey(familyUuid), FIELD_REVOKED, REVOKED_TRUE);
+        redisTemplate.execute(REVOKE_IF_EXISTS_SCRIPT, List.of(familyKey(familyUuid)));
         jpaStore.revokeFamilyState(familyUuid, reason);
         log.debug("Family 폐기: familyUuid={}, reason={}", familyUuid, reason);
     }
@@ -102,7 +119,7 @@ public class RedisTokenFamilyStore implements TokenFamilyStore {
     public int revokeAllFamilyStates(Long accountId, RevokeReason reason) {
         List<String> activeUuids = jpaStore.findActiveUuids(accountId);
         activeUuids.forEach(uuid ->
-            redisTemplate.opsForHash().put(familyKey(uuid), FIELD_REVOKED, REVOKED_TRUE)
+            redisTemplate.execute(REVOKE_IF_EXISTS_SCRIPT, List.of(familyKey(uuid)))
         );
         return jpaStore.revokeAllFamilyStates(accountId, reason);
     }
