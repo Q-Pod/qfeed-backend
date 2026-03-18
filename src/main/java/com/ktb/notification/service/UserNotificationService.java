@@ -1,13 +1,12 @@
 package com.ktb.notification.service;
 
 import com.ktb.notification.domain.enums.NotificationTypeCd;
+import com.ktb.notification.dto.response.UserNotificationListResponse;
 import com.ktb.notification.dto.response.UserNotificationResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 public interface UserNotificationService {
 
-    Page<UserNotificationResponse> getNotifications(Long accountId, Pageable pageable);
+    UserNotificationListResponse getNotifications(Long accountId, Long cursor, int size);
 
     boolean hasUnread(Long accountId);
 
