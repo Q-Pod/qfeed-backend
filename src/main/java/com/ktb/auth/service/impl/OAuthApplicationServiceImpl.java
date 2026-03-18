@@ -151,6 +151,11 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
     public TokenRefreshResult refreshTokens(String refreshToken) {
         RefreshTokenClaims claims = tokenService.validateRefreshToken(refreshToken);
 
+        // Redis TTL이 남아있어도 만료/폐기된 family는 차단
+        tokenFamilyStore.findByUuid(claims.familyUuid())
+                .filter(TokenFamilyInfo::active)
+                .orElseThrow(() -> new InvalidRefreshTokenException(claims.familyUuid()));
+
         String oldHash = tokenService.generateTokenHash(refreshToken);
         String newRefreshToken = tokenService.issueRefreshToken(
                 claims.userId(),
@@ -166,9 +171,11 @@ public class OAuthApplicationServiceImpl implements OAuthApplicationService {
 
         switch (result) {
             case 1 -> { }
-            case -1 -> throw new InvalidRefreshTokenException();
+            case -1 -> throw new InvalidRefreshTokenException(claims.familyUuid());
             case -2 -> throw new FamilyRevokedException();
             case -3 -> throw new TokenReuseDetectedException(claims.familyUuid());
+            default -> throw new InvalidRefreshTokenException(
+                    "unexpected rotate result: " + result + ", familyUuid: " + claims.familyUuid());
         }
 
         String newAccessToken = tokenService.issueAccessToken(
