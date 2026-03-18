@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -45,4 +46,14 @@ public interface UserNotificationRepository extends JpaRepository<UserNotificati
             NotificationTypeCd notificationType,
             Long referenceId
     );
+
+    @Query("SELECT n FROM UserNotification n WHERE n.account.id = :accountId ORDER BY n.id DESC")
+    Slice<UserNotification> findByAccountIdOrderByIdDesc(
+            @Param("accountId") Long accountId, Pageable pageable);
+
+    @Query("SELECT n FROM UserNotification n WHERE n.account.id = :accountId AND n.id < :cursor ORDER BY n.id DESC")
+    Slice<UserNotification> findByAccountIdAndIdLessThanOrderByIdDesc(
+            @Param("accountId") Long accountId,
+            @Param("cursor") Long cursor,
+            Pageable pageable);
 }

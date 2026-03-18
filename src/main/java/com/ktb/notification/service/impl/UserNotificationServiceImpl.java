@@ -5,6 +5,8 @@ import com.ktb.auth.service.UserAccountService;
 import com.ktb.notification.domain.Notice;
 import com.ktb.notification.domain.UserNotification;
 import com.ktb.notification.domain.enums.NotificationTypeCd;
+import com.ktb.notification.dto.response.UserNotificationListResponse;
+import com.ktb.notification.dto.response.UserNotificationPaginationResponse;
 import com.ktb.notification.dto.response.UserNotificationResponse;
 import com.ktb.notification.exception.NoticeNotFoundException;
 import com.ktb.notification.exception.UserNotificationNotFoundException;
@@ -12,9 +14,10 @@ import com.ktb.notification.repository.NoticeRepository;
 import com.ktb.notification.repository.UserNotificationRepository;
 import com.ktb.notification.service.UserNotificationService;
 import com.ktb.notification.sse.UnreadEventPublisher;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,15 +26,35 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserNotificationServiceImpl implements UserNotificationService {
 
+    private static final int MIN_SIZE = 1;
+    private static final int MAX_SIZE = 100;
+
     private final UserNotificationRepository userNotificationRepository;
     private final UserAccountService userAccountService;
     private final NoticeRepository noticeRepository;
     private final UnreadEventPublisher unreadEventPublisher;
 
     @Override
-    public Page<UserNotificationResponse> getNotifications(Long accountId, Pageable pageable) {
-        return userNotificationRepository.findByAccountId(accountId, pageable)
-                .map(UserNotificationResponse::from);
+    public UserNotificationListResponse getNotifications(Long accountId, Long cursor, int size) {
+        int validatedSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, size));
+        PageRequest pageRequest = PageRequest.of(0, validatedSize);
+
+        Slice<UserNotification> slice = (cursor == null)
+                ? userNotificationRepository.findByAccountIdOrderByIdDesc(accountId, pageRequest)
+                : userNotificationRepository.findByAccountIdAndIdLessThanOrderByIdDesc(accountId, cursor, pageRequest);
+
+        List<UserNotificationResponse> notifications = slice.getContent().stream()
+                .map(UserNotificationResponse::from)
+                .toList();
+
+        Long nextCursor = slice.hasNext()
+                ? slice.getContent().get(slice.getContent().size() - 1).getId()
+                : null;
+
+        return new UserNotificationListResponse(
+                notifications,
+                new UserNotificationPaginationResponse(nextCursor, slice.hasNext(), validatedSize)
+        );
     }
 
     @Override
