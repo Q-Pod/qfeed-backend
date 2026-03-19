@@ -7,9 +7,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum AnswerType {
 
-    PRACTICE_INTERVIEW("연습 면접"),
+    PRACTICE_INTERVIEW("연습 면접", "/profile/records/%d"),
 
-    REAL_INTERVIEW("실전 면접");
+    REAL_INTERVIEW("실전 면접", "/profile/records/real/%d");
 
     private final String description;
+    private final String deepLink;
 }
