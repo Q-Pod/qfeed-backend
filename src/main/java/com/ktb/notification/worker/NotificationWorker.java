@@ -29,7 +29,6 @@ public class NotificationWorker extends AbstractEventWorker<NotificationRequeste
     private static final String ANSWER_FEEDBACK_COMPLETED_CODE = "answer_feedback_completed";
     private static final String ANSWER_FEEDBACK_TITLE = "AI 피드백이 도착했습니다";
     private static final String ANSWER_FEEDBACK_BODY = "제출한 답변의 AI 피드백 생성이 완료되었습니다.";
-    private static final String ANSWER_FEEDBACK_DEEPLINK_TEMPLATE = "/answers/%d";
     private static final String DEDUPE_KEY_FORMAT = "%s:%s:%d";
 
     private final UserNotificationService userNotificationService;
@@ -85,7 +84,7 @@ public class NotificationWorker extends AbstractEventWorker<NotificationRequeste
                 NotificationType.IN_APP,
                 ANSWER_FEEDBACK_COMPLETED_CODE,
                 Map.of("title", ANSWER_FEEDBACK_TITLE, "body", ANSWER_FEEDBACK_BODY),
-                String.format(ANSWER_FEEDBACK_DEEPLINK_TEMPLATE, event.answerId()),
+                String.format(event.deepLink(), event.answerId()),
                 Priority.NORMAL,
                 String.valueOf(event.answerId())
         );
