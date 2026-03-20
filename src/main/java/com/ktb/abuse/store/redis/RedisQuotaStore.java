@@ -2,6 +2,7 @@ package com.ktb.abuse.store.redis;
 
 import com.ktb.abuse.store.QuotaStore;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class RedisQuotaStore implements QuotaStore {
 
     private static final String KEY_PREFIX = "abuse:quota:";
+    private static final ZoneId FIXED_ZONE = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final long QUOTA_TTL_SECONDS = 48L * 60 * 60;
 
@@ -48,6 +50,6 @@ public class RedisQuotaStore implements QuotaStore {
     }
 
     private String dailyKey(Long accountId) {
-        return KEY_PREFIX + accountId + ":" + LocalDate.now().format(DATE_FORMAT);
+        return KEY_PREFIX + accountId + ":" + LocalDate.now(FIXED_ZONE).format(DATE_FORMAT);
     }
 }
