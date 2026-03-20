@@ -44,6 +44,9 @@ public class RedisContentHashStore implements ContentHashStore {
 
     @Override
     public List<String> getRecentSimHashes(Long accountId, Long questionId, int limit) {
+        if (limit <= 0) {
+            return Collections.emptyList();
+        }
         List<String> result = redisTemplate.opsForList().range(simKey(accountId, questionId), 0, limit - 1);
         return result != null ? result : Collections.emptyList();
     }
