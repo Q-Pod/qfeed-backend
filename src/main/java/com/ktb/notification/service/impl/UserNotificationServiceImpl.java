@@ -40,7 +40,7 @@ public class UserNotificationServiceImpl implements UserNotificationService {
         PageRequest pageRequest = PageRequest.of(0, validatedSize);
 
         Slice<UserNotification> slice = (cursor == null)
-                ? userNotificationRepository.findByAccountIdOrderByIdDesc(accountId, pageRequest)
+                ? userNotificationRepository.findByAccountIdOrderByCreatedAtDescIdDesc(accountId, pageRequest)
                 : userNotificationRepository.findByAccountIdAndIdLessThanOrderByIdDesc(accountId, cursor, pageRequest);
 
         List<UserNotificationResponse> notifications = slice.getContent().stream()
@@ -48,7 +48,7 @@ public class UserNotificationServiceImpl implements UserNotificationService {
                 .toList();
 
         Long nextCursor = slice.hasNext()
-                ? slice.getContent().get(slice.getContent().size() - 1).getId()
+                ? slice.getContent().getLast().getId()
                 : null;
 
         return new UserNotificationListResponse(

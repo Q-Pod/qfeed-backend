@@ -47,11 +47,11 @@ public interface UserNotificationRepository extends JpaRepository<UserNotificati
             Long referenceId
     );
 
-    @Query("SELECT n FROM UserNotification n WHERE n.account.id = :accountId ORDER BY n.id DESC")
-    Slice<UserNotification> findByAccountIdOrderByIdDesc(
+    @Query("SELECT n FROM UserNotification n WHERE n.account.id = :accountId ORDER BY n.createdAt DESC, n.id DESC")
+    Slice<UserNotification> findByAccountIdOrderByCreatedAtDescIdDesc(
             @Param("accountId") Long accountId, Pageable pageable);
 
-    @Query("SELECT n FROM UserNotification n WHERE n.account.id = :accountId AND n.id < :cursor ORDER BY n.id DESC")
+    @Query("SELECT n FROM UserNotification n WHERE n.account.id = :accountId AND n.id < :cursor ORDER BY n.createdAt DESC, n.id DESC")
     Slice<UserNotification> findByAccountIdAndIdLessThanOrderByIdDesc(
             @Param("accountId") Long accountId,
             @Param("cursor") Long cursor,
