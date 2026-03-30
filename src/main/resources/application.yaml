@@ -7,6 +7,15 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
   security:
     is-authenticated: true
     permit-all-endpoints:
@@ -184,3 +193,29 @@ interview:
 file:
   multipart:
     cleanup-interval-ms: 600000
+
+notification:
+  rabbitmq:
+    enabled: ${NOTIFICATION_MQ_ENABLED:false}
+    exchanges:
+      direct: notification.direct
+      dlx: notification.dlx
+    queues:
+      campaign-execution: notification.campaign-execution
+      notification-requested: notification.notification-requested
+      notice-published: notification.notice-published
+      dlq-campaign-execution: notification.dlq.campaign-execution
+      dlq-notification-requested: notification.dlq.notification-requested
+      dlq-notice-published: notification.dlq.notice-published
+    routing-keys:
+      campaign-execution: campaign.execution
+      notification-requested: notification.requested
+      notice-published: notice.published
+      dlq-campaign-execution: dlq.campaign.execution
+      dlq-notification-requested: dlq.notification.requested
+      dlq-notice-published: dlq.notice.published
+  outbox:
+    batch-size: 100
+    relay-interval-ms: 1000
+    stale-threshold-seconds: 300
+    inbox-retention-days: 7

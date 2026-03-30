@@ -84,6 +84,14 @@ dependencies {
     // ✅ Cache
     implementation 'org.springframework.boot:spring-boot-starter-cache'
 
+    // ✅ RabbitMQ (AMQP)
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    testImplementation 'org.springframework.amqp:spring-rabbit-test'
+
+    // ✅ ShedLock (분산 스케줄러 중복 실행 방지)
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:6.0.2'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:6.0.2'
+
     // ✅ 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'

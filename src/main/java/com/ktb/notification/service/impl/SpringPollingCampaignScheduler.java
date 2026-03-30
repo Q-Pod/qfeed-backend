@@ -1,12 +1,14 @@
 package com.ktb.notification.service.impl;
 
+import com.ktb.notification.config.RabbitMQProperties;
 import com.ktb.notification.domain.Campaign;
-import com.ktb.notification.event.CampaignExecutionEvent;
+import com.ktb.notification.domain.NotificationOutbox;
+import com.ktb.notification.repository.NotificationOutboxRepository;
 import com.ktb.notification.service.CampaignScheduler;
 import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -16,15 +18,23 @@ public class SpringPollingCampaignScheduler implements CampaignScheduler {
 
     private static final int IMMEDIATE_THRESHOLD_SECONDS = 1;
 
-    private final ApplicationEventPublisher eventPublisher;
+    private final NotificationOutboxRepository outboxRepository;
+    private final RabbitMQProperties rabbitMQProperties;
 
     @Override
     public void schedule(Campaign campaign, LocalDateTime scheduledAt) {
         if (isImmediate(scheduledAt)) {
-            log.info("Campaign {} scheduled for immediate execution", campaign.getId());
+            log.info("Campaign {} scheduled for immediate execution via outbox", campaign.getId());
 
-            // NoticePublishedEventListener.REQUIRES_NEW 커밋 후 @TransactionalEventListener 발화
-            eventPublisher.publishEvent(new CampaignExecutionEvent(this, campaign.getId()));
+            outboxRepository.save(NotificationOutbox.of(
+                "campaign.execution",
+                "Campaign",
+                String.valueOf(campaign.getId()),
+                "campaign-execution:" + campaign.getId(),
+                rabbitMQProperties.getExchanges().getDirect(),
+                rabbitMQProperties.getRoutingKeys().getCampaignExecution(),
+                Map.of("campaignId", campaign.getId())
+            ));
         }
         // 예약 발송: READY 상태로 DB 저장 → CampaignPoller가 처리
     }

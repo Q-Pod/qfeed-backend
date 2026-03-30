@@ -1,22 +1,25 @@
 package com.ktb.notification.service.impl;
 
+import com.ktb.notification.config.RabbitMQProperties;
 import com.ktb.notification.domain.Campaign;
 import com.ktb.notification.domain.Notice;
+import com.ktb.notification.domain.NotificationOutbox;
 import com.ktb.notification.domain.enums.NotificationTypeCd;
+import com.ktb.notification.domain.enums.TargetUsersType;
 import com.ktb.notification.dto.request.NoticePublishRequest;
 import com.ktb.notification.dto.response.NoticePublishResult;
-import com.ktb.notification.event.NoticePublishedEvent;
 import com.ktb.notification.exception.CampaignKeyDuplicateException;
 import com.ktb.notification.exception.NoticeNotFoundException;
 import com.ktb.notification.repository.CampaignRepository;
 import com.ktb.notification.repository.NoticeRepository;
+import com.ktb.notification.repository.NotificationOutboxRepository;
 import com.ktb.notification.service.NoticePublishApplicationService;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +34,8 @@ public class NoticePublishApplicationServiceImpl implements NoticePublishApplica
 
     private final NoticeRepository noticeRepository;
     private final CampaignRepository campaignRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final NotificationOutboxRepository outboxRepository;
+    private final RabbitMQProperties rabbitMQProperties;
 
     @Override
     @Transactional
@@ -49,11 +53,24 @@ public class NoticePublishApplicationServiceImpl implements NoticePublishApplica
 
         Campaign campaign = createCampaign(noticeId, scheduledAt);
 
-        eventPublisher.publishEvent(new NoticePublishedEvent(
-                this, noticeId, campaign.getId(), request.targetUsers(), scheduledAt
+        TargetUsersType targetUsers = request.targetUsers();
+
+        outboxRepository.save(NotificationOutbox.of(
+            "notice.published",
+            "Notice",
+            String.valueOf(noticeId),
+            String.format(CAMPAIGN_KEY_FORMAT, noticeId),
+            rabbitMQProperties.getExchanges().getDirect(),
+            rabbitMQProperties.getRoutingKeys().getNoticePublished(),
+            Map.of(
+                "noticeId", noticeId,
+                "campaignId", campaign.getId(),
+                "targetUsers", targetUsers != null ? targetUsers.name() : TargetUsersType.ALL.name(),
+                "scheduledAt", scheduledAt.toString()
+            )
         ));
 
-        log.info("Notice {} published. Campaign: {} scheduled at {}",
+        log.info("Notice {} published. Campaign: {} scheduled at {}. Outbox saved.",
                 noticeId, campaign.getId(), scheduledAt);
 
         return NoticePublishResult.scheduled(noticeId, campaign.getId());
