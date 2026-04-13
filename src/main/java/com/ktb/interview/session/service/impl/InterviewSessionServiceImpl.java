@@ -129,7 +129,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
      * 만료된 세션과 피드백을 함께 정리합니다.
      */
     @Override
-    public int cleanupExpiredSessions() {
+    public void cleanupExpiredSessions() {
         int removed = 0;
         LocalDateTime now = LocalDateTime.now();
         for (InterviewSession session : sessionRepository.findAll()) {
@@ -142,7 +142,6 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         if (removed > 0) {
             log.info("Expired interview sessions cleaned up - removed={}", removed);
         }
-        return removed;
     }
 
     /**
