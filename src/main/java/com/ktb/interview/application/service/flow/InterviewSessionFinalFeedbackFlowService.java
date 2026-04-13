@@ -31,7 +31,6 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 세션 최종 피드백 생성/저장 플로우를 담당합니다.
@@ -62,7 +61,6 @@ public class InterviewSessionFinalFeedbackFlowService {
     /**
      * 세션(연습/실전) 누적 이력 기반으로 최종 AI 피드백을 생성합니다.
      */
-    @Transactional
     public InterviewSessionFinalFeedbackResponse requestSessionFinalFeedback(Long accountId, String sessionId, String clientIp) {
         log.info("requestSessionFinalFeedback - accountId={}, sessionId={}, clientIp={}", accountId, sessionId, clientIp);
 
@@ -91,7 +89,7 @@ public class InterviewSessionFinalFeedbackFlowService {
         }
         log.debug("requestSessionFinalFeedback history resolved - sessionId={}, historySize={}", sessionId, history.size());
 
-        InterviewHistoryItem latestTurn = history.get(history.size() - 1);
+        InterviewHistoryItem latestTurn = history.getLast();
         Question persistenceQuestion = resolvePersistenceQuestionForFinalFeedback(session, latestTurn);
 
         String finalAnswerText = latestTurn.answerText();

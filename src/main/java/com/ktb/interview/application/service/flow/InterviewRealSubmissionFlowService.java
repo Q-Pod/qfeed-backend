@@ -1,11 +1,12 @@
 package com.ktb.interview.application.service.flow;
 
+import com.ktb.ai.feedback.exception.AiFeedbackServiceTemporarilyUnavailableException;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
 import com.ktb.interview.application.InterviewFollowUpOrchestrator;
 import com.ktb.interview.assembler.InterviewRealHistoryAssembler;
-import com.ktb.interview.mapper.InterviewSubmissionResponseMapper;
 import com.ktb.interview.dto.ai.InterviewHistoryRequest;
+import com.ktb.interview.mapper.InterviewSubmissionResponseMapper;
 import com.ktb.interview.session.config.InterviewSessionProperties;
 import com.ktb.interview.session.domain.InterviewQuestionSnapshot;
 import com.ktb.interview.session.domain.InterviewSession;
@@ -15,12 +16,10 @@ import com.ktb.interview.session.dto.response.InterviewRealSubmitResponse;
 import com.ktb.interview.session.service.InterviewSessionService;
 import com.ktb.interview.validator.InterviewSubmissionValidator;
 import com.ktb.question.domain.QuestionCategory;
-import com.ktb.ai.feedback.exception.AiFeedbackServiceTemporarilyUnavailableException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 실전 모드 답변 제출 플로우를 담당합니다.
@@ -44,7 +43,6 @@ public class InterviewRealSubmissionFlowService {
     /**
      * 실전 모드 답변을 제출하고 다음 질문 또는 세션 종료 응답을 반환합니다.
      */
-    @Transactional
     public InterviewRealSubmitResponse submitReal(Long accountId, RealAnswerSubmitRequest request, String clientIp) {
         log.info("submitReal - accountId={}, sessionId={}, clientIp={}",
                 accountId, request.sessionId(), clientIp);
