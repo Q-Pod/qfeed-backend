@@ -41,5 +41,5 @@ public interface InterviewSessionService {
     /**
      * 만료된 세션을 정리하고 삭제 건수를 반환합니다.
      */
-    int cleanupExpiredSessions();
+    void cleanupExpiredSessions();
 }

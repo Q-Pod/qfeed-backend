@@ -6,7 +6,6 @@ import com.ktb.question.domain.QuestionType;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import lombok.Getter;
 
@@ -228,6 +227,6 @@ public class InterviewSession {
      * 외부 변경을 막기 위해 읽기 전용 이력 뷰를 반환합니다.
      */
     public synchronized List<InterviewHistoryItem> getInterviewHistoryView() {
-        return Collections.unmodifiableList(new ArrayList<>(interviewHistory));
+        return List.copyOf(interviewHistory);
     }
 }
