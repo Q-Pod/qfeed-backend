@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -142,14 +141,6 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         if (removed > 0) {
             log.info("Expired interview sessions cleaned up - removed={}", removed);
         }
-    }
-
-    /**
-     * 스케줄러 진입점에서 만료 세션 정리를 수행합니다.
-     */
-    @Scheduled(fixedDelayString = "${interview.session.cleanup-interval-ms}")
-    public void scheduledCleanup() {
-        cleanupExpiredSessions();
     }
 
     /**
