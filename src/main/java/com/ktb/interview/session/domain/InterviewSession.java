@@ -1,5 +1,7 @@
 package com.ktb.interview.session.domain;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ktb.answer.domain.AnswerType;
 import com.ktb.answer.domain.TurnType;
 import com.ktb.question.domain.QuestionType;
@@ -73,6 +75,54 @@ public class InterviewSession {
         this.endedAt = null;
         this.updatedAt = now;
         this.expiresAt = now.plus(ttl);
+    }
+
+    /*
+    Jackson 역직렬화를 위한 생성자
+     */
+    @JsonCreator
+    public InterviewSession(
+            @JsonProperty("sessionId") String sessionId,
+            @JsonProperty("accountId") Long accountId,
+            @JsonProperty("interviewType") AnswerType interviewType,
+            @JsonProperty("questionType") QuestionType questionType,
+            @JsonProperty("currentQuestion") InterviewQuestionSnapshot currentQuestion,
+            @JsonProperty("nextTurnType") TurnType nextTurnType,
+            @JsonProperty("currentTopicId") Integer currentTopicId,
+            @JsonProperty("initialQuestionId") Long initialQuestionId,
+            @JsonProperty("status") InterviewSessionStatus status,
+            @JsonProperty("turnCount") int turnCount,
+            @JsonProperty("retryCount") int retryCount,
+            @JsonProperty("errorCode") String errorCode,
+            @JsonProperty("errorMessage") String errorMessage,
+            @JsonProperty("interviewHistory") List<InterviewHistoryItem> interviewHistory,
+            @JsonProperty("startedAt") LocalDateTime startedAt,
+            @JsonProperty("endedAt") LocalDateTime endedAt,
+            @JsonProperty("nextRetryAt") LocalDateTime nextRetryAt,
+            @JsonProperty("failedAt") LocalDateTime failedAt,
+            @JsonProperty("expiresAt") LocalDateTime expiresAt,
+            @JsonProperty("updatedAt") LocalDateTime updatedAt
+    ) {
+        this.sessionId = sessionId;
+        this.accountId = accountId;
+        this.interviewType = interviewType;
+        this.questionType = questionType;
+        this.currentQuestion = currentQuestion;
+        this.nextTurnType = nextTurnType;
+        this.currentTopicId = currentTopicId;
+        this.initialQuestionId = initialQuestionId;
+        this.status = status;
+        this.turnCount = turnCount;
+        this.retryCount = retryCount;
+        this.errorCode = errorCode;
+        this.errorMessage = errorMessage;
+        this.interviewHistory = interviewHistory != null ? new ArrayList<>(interviewHistory) : new ArrayList<>();
+        this.startedAt = startedAt;
+        this.endedAt = endedAt;
+        this.nextRetryAt = nextRetryAt;
+        this.failedAt = failedAt;
+        this.expiresAt = expiresAt;
+        this.updatedAt = updatedAt;
     }
 
     /**
