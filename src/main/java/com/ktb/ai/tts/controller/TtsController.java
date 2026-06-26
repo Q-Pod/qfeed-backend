@@ -3,6 +3,7 @@ package com.ktb.ai.tts.controller;
 import com.ktb.ai.tts.dto.request.TtsRequest;
 import com.ktb.ai.tts.dto.response.TtsAudioResponse;
 import com.ktb.ai.tts.service.TtsService;
+import com.ktb.common.util.TelemetryUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -60,6 +61,13 @@ public class TtsController {
     public ResponseEntity<byte[]> convert(@Valid @RequestBody TtsRequest request) {
         log.info("TTS convert request - userId={}, sessionId={}, textLength={}",
                 request.userId(), request.sessionId(), request.text() == null ? 0 : request.text().length());
+
+        TelemetryUtils.attachSessionAttributes(
+                request.sessionId(),
+                request.userId(),
+                null
+        );
+
         TtsAudioResponse response = ttsService.convertToSpeech(
                 request.userId(),
                 request.sessionId(),

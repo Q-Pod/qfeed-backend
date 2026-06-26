@@ -1,5 +1,6 @@
 package com.ktb.interview.controller;
 
+import com.ktb.common.util.TelemetryUtils;
 import com.ktb.interview.dto.ai.InterviewFeedbackDataResponse;
 import com.ktb.interview.session.dto.request.InterviewSessionCreateRequest;
 import com.ktb.interview.session.dto.request.PracticeAnswerSubmitRequest;
@@ -19,6 +20,7 @@ import com.ktb.interview.session.exception.InterviewSessionInvalidStateException
 import com.ktb.auth.security.adapter.SecurityUserAccount;
 import com.ktb.common.dto.ApiResponse;
 import com.ktb.common.util.HttpRequestUtils;
+import io.opentelemetry.api.trace.Span;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -84,6 +86,14 @@ public class InterviewSessionController {
     ) {
         Long accountId = principal.getAccount().getId();
         InterviewSessionCreateResponse data = interviewSessionManagementService.createSession(accountId, request);
+
+        // session_id는 서비스 호출 후 응답에서 꺼낼 수 있음
+        TelemetryUtils.attachSessionAttributes(
+                data.sessionId(),
+                accountId,
+                request.interviewType().name()   // "PRACTICE_INTERVIEW" | "REAL_INTERVIEW"
+        );
+
         log.info("createSession response - accountId={}, sessionId={}, interviewType={}",
                 accountId, data.sessionId(), data.interviewType());
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -110,6 +120,9 @@ public class InterviewSessionController {
     ) {
         Long accountId = principal.getAccount().getId();
         log.debug("getSessionState request - accountId={}, sessionId={}", accountId, sessionId);
+
+        TelemetryUtils.attachSessionAttributes(sessionId, accountId, null);
+
         InterviewSessionStateResponse data = interviewSessionManagementService.getSessionState(accountId, sessionId);
         log.debug("getSessionState response - accountId={}, sessionId={}, status={}",
                 accountId, sessionId, data.status());
@@ -140,6 +153,8 @@ public class InterviewSessionController {
     ) {
         Long accountId = principal.getAccount().getId();
         log.debug("getSessionFeedback request - accountId={}, sessionId={}", accountId, sessionId);
+
+        TelemetryUtils.attachSessionAttributes(sessionId, accountId, null);
 
         try {
             InterviewSessionFinalFeedbackResponse data = interviewSessionManagementService
@@ -188,6 +203,13 @@ public class InterviewSessionController {
             HttpServletRequest httpRequest
     ) {
         Long accountId = principal.getAccount().getId();
+
+        TelemetryUtils.attachSessionAttributes(
+                request.sessionId(),
+                accountId,
+                "PRACTICE_INTERVIEW"   // interviewType 고정
+        );
+
         String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
         log.info("submitPractice request - accountId={}, sessionId={}, questionId={}, clientIp={}",
                 accountId, request.sessionId(), request.questionId(), clientIp);
@@ -221,6 +243,13 @@ public class InterviewSessionController {
             HttpServletRequest httpRequest
     ) {
         Long accountId = principal.getAccount().getId();
+
+        TelemetryUtils.attachSessionAttributes(
+                request.sessionId(),
+                accountId,
+                "REAL_INTERVIEW"   // interviewType 고정
+        );
+
         String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
         log.info("submitReal request - accountId={}, sessionId={}, questionType={}, clientIp={}",
                 accountId, request.sessionId(), request.questionType(), clientIp);
@@ -258,6 +287,9 @@ public class InterviewSessionController {
             HttpServletRequest httpRequest
     ) {
         Long accountId = principal.getAccount().getId();
+
+        TelemetryUtils.attachSessionAttributes(request.sessionId(), accountId, null);
+
         String clientIp = HttpRequestUtils.extractClientIp(httpRequest, HEADER_X_FORWARDED_FOR, HEADER_X_REAL_IP);
         String sessionId = request.sessionId();
         log.info("requestSessionFinalFeedback request - accountId={}, sessionId={}, clientIp={}",
@@ -269,6 +301,9 @@ public class InterviewSessionController {
         );
         log.info("requestSessionFinalFeedback response - accountId={}, sessionId={}, status={}",
                 accountId, data.sessionId(), data.status());
+
+        Span.current().setAttribute("qfeed.session.completed", true);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>("generate_feedback_success", data));
     }
