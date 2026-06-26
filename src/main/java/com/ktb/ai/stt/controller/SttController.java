@@ -4,6 +4,7 @@ import com.ktb.ai.stt.dto.request.SttRequest;
 import com.ktb.ai.stt.dto.response.SttResponse;
 import com.ktb.ai.stt.service.SttService;
 import com.ktb.common.dto.ApiResponse;
+import com.ktb.common.util.TelemetryUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,6 +43,14 @@ public class SttController {
             @Valid @RequestBody SttRequest request
     ) {
         log.info("STT convert request - userId={}, sessionId={}", request.userId(), request.sessionId());
+
+        // interview_type은 SttRequest에 없으므로 null
+        TelemetryUtils.attachSessionAttributes(
+                request.sessionId(),
+                request.userId(),
+                null
+        );
+
         String text = sttService.convertToText(
                 request.userId(),
                 request.sessionId(),
