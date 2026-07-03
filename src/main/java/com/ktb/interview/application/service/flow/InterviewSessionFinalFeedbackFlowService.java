@@ -18,6 +18,7 @@ import com.ktb.interview.session.domain.InterviewSessionStatus;
 import com.ktb.interview.session.dto.response.InterviewSessionFinalFeedbackResponse;
 import com.ktb.interview.session.exception.InterviewSessionInvalidStateException;
 import com.ktb.interview.session.mapper.InterviewSessionFeedbackMapper;
+import com.ktb.interview.session.metrics.InterviewSessionMetrics;
 import com.ktb.interview.session.persistence.InterviewFinalFeedbackPersistenceService;
 import com.ktb.interview.session.repository.InterviewSessionFeedbackRepository;
 import com.ktb.interview.session.service.InterviewSessionService;
@@ -57,6 +58,7 @@ public class InterviewSessionFinalFeedbackFlowService {
     private final InterviewSessionFeedbackRepository feedbackRepository;
     private final InterviewFeedbackOrchestrator interviewFeedbackOrchestrator;
     private final InterviewFinalFeedbackPersistenceService finalFeedbackPersistenceService;
+    private final InterviewSessionMetrics sessionMetrics;
 
     /**
      * 세션(연습/실전) 누적 이력 기반으로 최종 AI 피드백을 생성합니다.
@@ -120,6 +122,7 @@ public class InterviewSessionFinalFeedbackFlowService {
 
         InterviewFeedbackDataResponse completed = responseMapper.toFinalSessionFeedbackResponse(feedback, answer.getId());
         session.markCompleted();
+        sessionMetrics.recordCompleted(session.getInterviewType().name());
         finalFeedbackStore.persistFinalFeedback(session, completed);
         interviewSessionService.deleteSession(session.getSessionId());
         log.info("requestSessionFinalFeedback completed - accountId={}, sessionId={}, answerId={}",

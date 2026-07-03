@@ -18,6 +18,7 @@ import com.ktb.answer.service.AnswerDomainService;
 import com.ktb.interview.application.InterviewFeedbackOrchestrator;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSession;
+import com.ktb.interview.session.metrics.InterviewSessionMetrics;
 import com.ktb.interview.session.service.InterviewSessionService;
 import com.ktb.common.domain.ErrorCode;
 import com.ktb.hashtag.domain.QuestionHashtag;
@@ -47,6 +48,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
     private final AnswerDomainService answerDomainService;
     private final InterviewSessionService interviewSessionService;
     private final AiInterviewPort aiInterviewClient;
+    private final InterviewSessionMetrics sessionMetrics;
 
     /**
      * 세션 이력/키워드를 AI 요청 포맷으로 변환해 피드백 생성 파이프라인을 실행합니다.
@@ -95,6 +97,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
             answerRepository.save(answer);
 
             session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
+            sessionMetrics.recordFailed(session.getInterviewType().name());
             interviewSessionService.save(session);
             log.warn("generateFeedback rejected - sessionId={}, answerId={}, reason={}",
                     session.getSessionId(), answer.getId(), e.getMessage());
@@ -125,8 +128,6 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                 log.debug("requestFeedbackWithRetry success - sessionId={}, answerId={}, attempt={}",
                         session.getSessionId(), answer.getId(), attempt);
                 return response;
-            } catch (AiFeedbackRequestRejectedException e) {
-                throw e;
             } catch (AiFeedbackRetryableException e) {
                 boolean finalAttempt = attempt == totalAttempts;
                 if (finalAttempt) {
@@ -139,6 +140,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                             failureReason,
                             RETRY_DELAYS_SECONDS.length
                     );
+                    sessionMetrics.recordFailed(session.getInterviewType().name());
                     interviewSessionService.save(session);
                     log.error("requestFeedbackWithRetry exhausted - sessionId={}, answerId={}, attempts={}, reason={}",
                             session.getSessionId(), answer.getId(), totalAttempts, failureReason);
@@ -146,7 +148,6 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                     throw new AiFeedbackDependencyFailedException(failureReason, e);
                 }
 
-                int retryCount = attempt;
                 int delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1];
                 LocalDateTime nextRetryAt = LocalDateTime.now().plusSeconds(delaySeconds);
                 log.warn("requestFeedbackWithRetry retryable error - sessionId={}, answerId={}, attempt={}/{}, nextRetryAt={}, reason={}",
@@ -155,7 +156,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                 answerDomainService.transitionStatus(answer, AnswerStatus.FAILED_RETRYABLE);
                 answerRepository.save(answer);
 
-                session.markRetrying(retryCount, nextRetryAt);
+                session.markRetrying(attempt, nextRetryAt);
                 interviewSessionService.save(session);
 
                 try {
@@ -199,7 +200,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
             QuestionCategory fallbackCategory
     ) {
         if (interviewType == AnswerType.PRACTICE_INTERVIEW) {
-            InterviewHistoryItem latest = history.get(history.size() - 1);
+            InterviewHistoryItem latest = history.getLast();
             return List.of(toAiHistoryItem(latest, fallbackCategory));
         }
         return history.stream()

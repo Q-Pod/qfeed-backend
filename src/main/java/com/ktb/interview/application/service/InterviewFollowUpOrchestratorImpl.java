@@ -6,6 +6,7 @@ import com.ktb.ai.feedback.exception.AiFeedbackServiceTemporarilyUnavailableExce
 import com.ktb.ai.feedback.exception.AiFeedbackTimeoutException;
 import com.ktb.ai.feedback.exception.AiFeedbackDependencyFailedException;
 import com.ktb.answer.domain.TurnType;
+import com.ktb.common.domain.ErrorCode;
 import com.ktb.interview.dto.ai.InterviewFollowUpQuestionApiResponse;
 import com.ktb.interview.dto.ai.InterviewFollowUpQuestionDataResponse;
 import com.ktb.interview.dto.ai.InterviewFollowUpQuestionRequest;
@@ -15,6 +16,9 @@ import com.ktb.interview.application.InterviewFollowUpOrchestrator;
 import com.ktb.interview.session.domain.InterviewHistoryItem;
 import com.ktb.interview.session.domain.InterviewSession;
 import java.util.List;
+
+import com.ktb.interview.session.metrics.InterviewSessionMetrics;
+import com.ktb.interview.session.service.InterviewSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,8 @@ public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrche
     private static final String ERROR_TIMEOUT_KEYWORD_2 = "timeout";
 
     private final AiInterviewPort aiInterviewClient;
+    private final InterviewSessionService interviewSessionService;
+    private final InterviewSessionMetrics sessionMetrics;
 
     /**
      * 세션 이력을 기반으로 다음 질문/종료 여부를 AI 서버에서 결정합니다.
@@ -80,6 +86,9 @@ public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrche
                     data.category()
             );
         } catch (AiFeedbackRequestRejectedException e) {
+            session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
+            sessionMetrics.recordFailed(session.getInterviewType().name());
+            interviewSessionService.save(session);
             log.warn("AI follow-up request rejected - sessionId={}, reason={}",
                     session.getSessionId(), e.getMessage());
             throw e;
