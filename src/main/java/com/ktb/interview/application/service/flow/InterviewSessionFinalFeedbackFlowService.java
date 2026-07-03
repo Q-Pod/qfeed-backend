@@ -73,6 +73,7 @@ public class InterviewSessionFinalFeedbackFlowService {
         if (cached.isPresent()) {
             log.info("requestSessionFinalFeedback using cached feedback - sessionId={}", sessionId);
             session.markCompleted();
+            sessionMetrics.recordCompleted(session.getInterviewType().name());
             InterviewFeedbackDataResponse cachedFeedback = InterviewSessionFeedbackMapper.toDto(cached.get())
                     .withStatus(SESSION_STATUS_COMPLETED);
             finalFeedbackStore.persistFinalFeedback(session, cachedFeedback);

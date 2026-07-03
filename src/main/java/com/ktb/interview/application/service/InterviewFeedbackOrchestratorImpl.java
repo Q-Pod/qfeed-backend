@@ -163,6 +163,16 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                     Thread.sleep(delaySeconds * 1000L);
                 } catch (InterruptedException interruptedException) {
                     Thread.currentThread().interrupt();
+
+                    // 메트릭 누락 방지 + TTL 내 재진입 차단
+                    session.markFailed(
+                            ErrorCode.AI_FEEDBACK_DEPENDENCY_FAILED.getCode(),
+                            ERROR_INTERRUPTED_WHILE_RETRY_WAIT,
+                            attempt
+                    );
+                    sessionMetrics.recordFailed(session.getInterviewType().name());
+                    interviewSessionService.save(session); // best-effort, 셧다운 중엔 실패할 수 있음
+
                     throw new AiFeedbackDependencyFailedException(
                             ERROR_INTERRUPTED_WHILE_RETRY_WAIT,
                             interruptedException
