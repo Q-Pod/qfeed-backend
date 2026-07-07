@@ -96,6 +96,7 @@ dependencies {
 
     // ✅ OpenTelemetry api
     implementation 'io.opentelemetry:opentelemetry-api:1.63.0'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.29.0'
 }
 tasks.test {
     useJUnitPlatform()

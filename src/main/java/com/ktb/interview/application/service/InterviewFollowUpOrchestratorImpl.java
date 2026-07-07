@@ -19,6 +19,7 @@ import java.util.List;
 
 import com.ktb.interview.session.metrics.InterviewSessionMetrics;
 import com.ktb.interview.session.service.InterviewSessionService;
+import io.opentelemetry.instrumentation.api.instrumenter.LocalRootSpan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -87,6 +88,7 @@ public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrche
             );
         } catch (AiFeedbackRequestRejectedException e) {
             session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
+            LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
             sessionMetrics.recordFailed(session.getInterviewType().name());
             interviewSessionService.save(session);
             log.warn("AI follow-up request rejected - sessionId={}, reason={}",
