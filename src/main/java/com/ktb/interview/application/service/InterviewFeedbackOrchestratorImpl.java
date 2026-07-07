@@ -26,6 +26,8 @@ import com.ktb.question.domain.Question;
 import com.ktb.question.domain.QuestionCategory;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import io.opentelemetry.instrumentation.api.instrumenter.LocalRootSpan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -98,6 +100,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
 
             session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
             sessionMetrics.recordFailed(session.getInterviewType().name());
+            LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
             interviewSessionService.save(session);
             log.warn("generateFeedback rejected - sessionId={}, answerId={}, reason={}",
                     session.getSessionId(), answer.getId(), e.getMessage());
@@ -141,6 +144,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                             RETRY_DELAYS_SECONDS.length
                     );
                     sessionMetrics.recordFailed(session.getInterviewType().name());
+                    LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
                     interviewSessionService.save(session);
                     log.error("requestFeedbackWithRetry exhausted - sessionId={}, answerId={}, attempts={}, reason={}",
                             session.getSessionId(), answer.getId(), totalAttempts, failureReason);
@@ -171,6 +175,7 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                             attempt
                     );
                     sessionMetrics.recordFailed(session.getInterviewType().name());
+                    LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
                     interviewSessionService.save(session); // best-effort, 셧다운 중엔 실패할 수 있음
 
                     throw new AiFeedbackDependencyFailedException(
