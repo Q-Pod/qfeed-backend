@@ -8,10 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Slf4j
@@ -23,6 +25,7 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
 
     private final InterviewSessionStorePolicy storePolicy;
     private final RedisTemplate<String, InterviewSession> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public void save(InterviewSession session) {
@@ -36,6 +39,11 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
         }
 
         redisTemplate.opsForValue().set(key, session, ttl);
+
+        long expiresAtEpoch = session.getExpiresAt().toEpochSecond(ZoneOffset.UTC);
+        stringRedisTemplate.opsForZSet().add("interview:session:expiry-index", session.getSessionId(), expiresAtEpoch);
+        stringRedisTemplate.opsForHash().put("interview:session:type-map", session.getSessionId(), session.getInterviewType());
+
         log.debug("RedisInterviewSessionRepository.save - key={}, ttl={}", key, ttl);
     }
 
@@ -55,6 +63,10 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
     public void deleteBySessionId(String sessionId) {
         String key = storePolicy.historyKey(sessionId);
         redisTemplate.delete(key);
+
+        stringRedisTemplate.opsForZSet().remove("interview:session:expiry-index", sessionId);
+        stringRedisTemplate.opsForHash().delete("interview:session:type-map", sessionId);
+
         log.debug("RedisInterviewSessionRepository.deleteBySessionId - key={}", key);
     }
 
