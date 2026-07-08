@@ -180,6 +180,7 @@ interview:
     store:
       history-key-prefix: interview:session
       feedback-key-prefix: interview:feedback
+    ttl-check-interval-ms: 30000
 
 file:
   multipart:

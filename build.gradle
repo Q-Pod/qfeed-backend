@@ -81,6 +81,10 @@ dependencies {
     // ✅ Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // ✅ ShedLock
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:7.7.0'
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-redis-spring:7.7.0'
+
     // ✅ Cache
     implementation 'org.springframework.boot:spring-boot-starter-cache'
 
