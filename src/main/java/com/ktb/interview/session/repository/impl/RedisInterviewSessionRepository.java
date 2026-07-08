@@ -42,7 +42,7 @@ public class RedisInterviewSessionRepository implements InterviewSessionReposito
 
         long expiresAtEpoch = session.getExpiresAt().toEpochSecond(ZoneOffset.UTC);
         stringRedisTemplate.opsForZSet().add("interview:session:expiry-index", session.getSessionId(), expiresAtEpoch);
-        stringRedisTemplate.opsForHash().put("interview:session:type-map", session.getSessionId(), session.getInterviewType());
+        stringRedisTemplate.opsForHash().put("interview:session:type-map", session.getSessionId(), session.getInterviewType().name());
 
         log.debug("RedisInterviewSessionRepository.save - key={}, ttl={}", key, ttl);
     }
