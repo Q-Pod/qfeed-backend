@@ -101,7 +101,9 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
             session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
             sessionMetrics.recordFailed(session.getInterviewType().name());
             LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
-            interviewSessionService.save(session);
+
+            // 추후 실패 세션 조회가 필요하면 수정 필요
+            interviewSessionService.deleteSession(session.getSessionId());
             log.warn("generateFeedback rejected - sessionId={}, answerId={}, reason={}",
                     session.getSessionId(), answer.getId(), e.getMessage());
             throw e;
@@ -145,7 +147,10 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                     );
                     sessionMetrics.recordFailed(session.getInterviewType().name());
                     LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
-                    interviewSessionService.save(session);
+
+                    // 추후 실패 세션 조회가 필요하면 수정 필요
+                    interviewSessionService.deleteSession(session.getSessionId());
+
                     log.error("requestFeedbackWithRetry exhausted - sessionId={}, answerId={}, attempts={}, reason={}",
                             session.getSessionId(), answer.getId(), totalAttempts, failureReason);
 
@@ -176,7 +181,9 @@ public class InterviewFeedbackOrchestratorImpl implements InterviewFeedbackOrche
                     );
                     sessionMetrics.recordFailed(session.getInterviewType().name());
                     LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
-                    interviewSessionService.save(session); // best-effort, 셧다운 중엔 실패할 수 있음
+
+                    // 추후 실패 세션 조회가 필요하면 수정 필요
+                    interviewSessionService.deleteSession(session.getSessionId()); // best-effort, 셧다운 중엔 실패할 수 있음
 
                     throw new AiFeedbackDependencyFailedException(
                             ERROR_INTERRUPTED_WHILE_RETRY_WAIT,

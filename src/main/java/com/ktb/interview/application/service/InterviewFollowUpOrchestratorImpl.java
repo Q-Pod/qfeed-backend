@@ -90,7 +90,10 @@ public class InterviewFollowUpOrchestratorImpl implements InterviewFollowUpOrche
             session.markFailed(ErrorCode.INVALID_INPUT.getCode(), e.getMessage(), session.getRetryCount());
             LocalRootSpan.current().setAttribute("qfeed.session.completed", false);
             sessionMetrics.recordFailed(session.getInterviewType().name());
-            interviewSessionService.save(session);
+
+            // 추후 실패 세션 조회가 필요하면 수정 필요
+            interviewSessionService.deleteSession(session.getSessionId());
+
             log.warn("AI follow-up request rejected - sessionId={}, reason={}",
                     session.getSessionId(), e.getMessage());
             throw e;
